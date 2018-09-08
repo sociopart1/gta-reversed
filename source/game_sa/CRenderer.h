@@ -80,7 +80,7 @@ public:
     static void RenderFirstPersonVehicle();
     static bool SetupLightingForEntity(CEntity* entity);
     static int SetupMapEntityVisibility(CEntity* entity, CBaseModelInfo* modelInfo, float distance, bool arg3);
-    static int SetupEntityVisibility(CEntity* entity, float& outDistance);
+    static int SetupEntityVisibility(CEntity* entity, float* outDistance);
     static int SetupBigBuildingVisibility(CEntity* entity, float& outDistance);
     static void ScanSectorList(int sector_x, int sector_y);
     static void ScanBigBuildingList(int sector_x, int sector_y);
@@ -93,7 +93,7 @@ public:
     static void ScanSectorList_RequestModels(int sector_x, int sector_y);
     static void RequestObjectsInFrustum(RwMatrixTag* transformMat, int modelRequesFlags);
     static void RequestObjectsInDirection(CVector const& posn, float angle, int modelRequesFlags);
-    static void SetupScanLists(int sector_x, int sector_y);
+    static void SetupScanLists(uint32_t uiSector_x, uint32_t uiSector_y);
 };
 
 extern unsigned int &gnRendererModelRequestFlags;

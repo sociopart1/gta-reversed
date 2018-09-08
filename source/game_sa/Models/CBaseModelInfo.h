@@ -48,8 +48,9 @@ public:
     short          m_n2dEffectIndex;
     short          m_nObjectInfoIndex;
 	union{
+        unsigned short m_nFlags;
         struct {
-            unsigned char m_nFlags;
+            unsigned char m_nFlagsUpperByte;
             unsigned char m_nFlagsLowerByte;
         };
 		struct{

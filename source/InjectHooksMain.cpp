@@ -3,14 +3,9 @@
 
 #pragma comment(lib, "detours.lib")
 
-typedef signed int(__cdecl *hCRenderer_SetupEntityVisibility)(CEntity *pEntity, float *outDistance);
-auto OLD_CRenderer_SetupEntityVisibility = (hCRenderer_SetupEntityVisibility)0x554230;
-signed int __cdecl CRenderer_SetupEntityVisibility(CEntity *pEntity, float *outDistance);
-
-typedef void(__cdecl *hCRenderer_AddEntityToRenderList)(CEntity *pEntity, float fDistance);
-auto OLD_CRenderer_AddEntityToRenderList = (hCRenderer_AddEntityToRenderList)0x05534B0;
-void __cdecl CRenderer_AddEntityToRenderList(CEntity *pEntity, float fDistance);
-
+typedef int(__cdecl *hCRenderer_ScanSectorList)(unsigned int uiSector_x, unsigned int uiSector_y);
+auto OLD_CRenderer_ScanSectorList = (hCRenderer_ScanSectorList)0x554230;
+int __cdecl CRenderer_ScanSectorList(unsigned int uiSector_x, unsigned int uiSector_y);
 
 void InjectHooksMain(void)
 {
@@ -20,238 +15,165 @@ void InjectHooksMain(void)
     //CStreaming::InjectHooks();
     CRenderer::InjectHooks();
 
-   DetourRestoreAfterWith();
+  /*  DetourRestoreAfterWith();
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
 
     std::printf("GOING TO HOOK FUNC NOW\n");
-    //DetourAttach(&(PVOID&)OLD_CRenderer_AddEntityToRenderList, CRenderer_AddEntityToRenderList);
-
-     DetourAttach(&(PVOID&)OLD_CRenderer_SetupEntityVisibility, CRenderer_SetupEntityVisibility);
-
-    DetourTransactionCommit();
-    
+    DetourAttach(&(PVOID&)OLD_CRenderer_ScanSectorList, CRenderer_ScanSectorList);
+    DetourTransactionCommit();*/
 }
 
-
-struct s0 {
-    signed char pad28[28];
-    uint32_t f28;
-    signed char pad34[2];
-    int16_t f34;
-    signed char pad52[16];
-    signed char f52;
-};
-
-struct s1 {
-    signed char pad18[18];
-    unsigned char f18;
-};
-
-void CRenderer_AddEntityToRenderList(CEntity *pEntity, float fDistance)
+/*
+int __cdecl CRenderer_ScanSectorList(unsigned int uiSector_x, unsigned int uiSector_y)
 {
-    std::printf("00000CRe00nd0e0000000r0er_AddEntityToRenderList called modelIndex: %d | distance: %f\n  ", pEntity->m_nModelIndex, fDistance);
+    struct CEntity__ {
+        signed char pad20 [20];
+        int32_t f20;
+        signed char pad28 [4];
+        uint32_t f28;
+        signed char pad34[2];
+        int16_t f34;
+        signed char pad44[8];
+        int16_t f44;
+        signed char pad54[8];
+        unsigned char f54;
+        signed char pad1069[1014];
+        unsigned char someFlags;
+    };
 
-    CBaseModelInfo* pBaseModelInfo = CModelInfo::ms_modelInfoPtrs[pEntity->m_nModelIndex];
-    pBaseModelInfo->m_nFlags &= 0xFE; // set first 7 bits to true, and 8th bit (bIsLod) to false
+    unsigned int uiSector_x2; // esi
+    bool bRequestModel; // bl
+    double fCameraAndSectorX; // st7
+    long double fCameraAndSectorY; // st6
+    CEntity ***entityPointer; // eax
+    CEntity **ppEntity; // edi
+    CEntity *pLodEntity; // esi
+    bool iterationOver; // zf
+    CBaseModelInfo *pBaseModelInfo; // eax
+    __int16 modelInfoFlags; // ax
+    __int32 entityFlags; // eax
+    CMatrixLink *slodCoors; // ecx
+    float *fPosX; // eax
+    double fCameraAndEntityX; // st7
+    CVector *vecEntityPosition; // eax
+    double fCameraAndEntityY; // st7
+    int nNoOfVisibleEntities; // eax
+    int result; // eax
+    float fNegativeDrawDistance; // [esp+Ch] [ebp-Ch]
+    signed int maximumLoopIterations; // [esp+10h] [ebp-8h]
+    float outDistance; // [esp+14h] [ebp-4h]
+    float fAngleInRadians; // [esp+1Ch] [ebp+4h]
+    float fDrawDistance; // [esp+1Ch] [ebp+4h]
+    CEntity ***_PC_Scratch; // [esp+20h] [ebp+8h]
 
-    if (pEntity->m_bDistanceFade >= 0)
+    uiSector_x2 = uiSector_x;
+    bRequestModel = 0;
+    fCameraAndSectorX = (uiSector_x - 60) * 50.0 + 25.0 - CRenderer::ms_vecCameraPosition.x;
+    fCameraAndSectorY = (uiSector_y - 60) * 50.0 + 25.0 - CRenderer::ms_vecCameraPosition.y;
+    if (fCameraAndSectorY * fCameraAndSectorY + fCameraAndSectorX * fCameraAndSectorX < 10000.0
+        || (fAngleInRadians = atan2(-fCameraAndSectorX, fCameraAndSectorY) - CRenderer::ms_fCameraHeading,
+            fabs(CGeneral::LimitRadianAngle(fAngleInRadians)) < 0.36000001))
     {
-        if (pEntity->m_bDrawLast && CVisibilityPlugins::InsertEntityIntoSortedList(pEntity, fDistance))
+        bRequestModel = 1;
+    }
+    CRenderer::SetupScanLists(uiSector_x, uiSector_y);
+    _PC_Scratch = PC_Scratch;
+    maximumLoopIterations = 5;
+    do
+    {
+        entityPointer = _PC_Scratch;
+        if (*_PC_Scratch)
         {
-            pEntity->m_nFlags &= 0xFFFF7FFF; // bDistanceFade
-            return;
-        }
-    }
-    else
-    {
-        if (CVisibilityPlugins::InsertEntityIntoSortedList(pEntity, fDistance))
-        {
-            return;
-        }
-    }
-
-    if (pEntity->m_nNumLodChildren && !pEntity->m_bUnderwater)
-    {
-        CRenderer::ms_aVisibleLodPtrs[CRenderer::ms_nNoOfVisibleLods] = pEntity;
-        CRenderer::ms_nNoOfVisibleLods++;
-    }
-    else
-    {
-        CRenderer::ms_aVisibleEntityPtrs[CRenderer::ms_nNoOfVisibleEntities] = pEntity;
-        CRenderer::ms_nNoOfVisibleEntities++;
-    }
-}
-
-signed int __cdecl CRenderer_SetupEntityVisibility(CEntity *pEntity, float *outDistance)
-{
-    std::printf("CRenderer_SetupEntityVisibility called! |  distance fade: %d\n", pEntity->m_bDistanceFade);
-
-    int modelIndex = pEntity->m_nModelIndex;
-    CBaseModelInfo *pBaseModelInfo = CModelInfo::ms_modelInfoPtrs[modelIndex];
-    CBaseModelInfo *pBaseAtomicModelInfo = pBaseModelInfo->AsAtomicModelInfoPtr();
-    bool bDoSomething = 1;
-    if ((pEntity->m_nType & 7) == 2)
-    {
-        unsigned int entityFlags = pEntity->m_nFlags;
-        if (entityFlags >= 0
-            && (!CRenderer::ms_bRenderTunnels && entityFlags & 0x40000000 || !CRenderer::ms_bRenderOutsideTunnels && !(entityFlags & 0x40000000)))
-        {
-            return 0;
-        }
-    }
-
-    if (!pBaseAtomicModelInfo)
-    {
-        if (pBaseModelInfo->GetModelType() != 5 && pBaseModelInfo->GetModelType() != 4)
-        {
-            if (FindPlayerVehicle(-1, 0) == pEntity)
+            ppEntity = *entityPointer;
+            while (ppEntity)
             {
-                if (gbFirstPersonRunThisFrame)
+                pLodEntity = *ppEntity;
+                iterationOver = (*ppEntity)->m_nScanCode == CWorld::ms_nCurrentScanCode;
+                ppEntity = (CEntity **)  ((int *)ppEntity)[1];
+                if (!iterationOver)
                 {
-                    if (CReplay::Mode != 1)
+                    pLodEntity->m_nScanCode = CWorld::ms_nCurrentScanCode;
+                    pLodEntity->m_nFlags &= 0xFFFDFFFF;
+                    switch (CRenderer::SetupEntityVisibility(pLodEntity, &outDistance))
                     {
-                        
-                        DWORD dwDirectionWasLooking = TheCamera.m_aCams[TheCamera.m_nActiveCam].m_nDirectionWasLooking;
-                        CAutomobile * pVehicle = FindPlayerVehicle(-1, 0);
-                        if (pVehicle->m_nVehicleClass != CLASS_LEISUREBOAT
-                            || !(pVehicle->m_doors[3].m_nDoorFlags & 0x80))
+                    case 0:
+                        if ((pLodEntity->m_nType & 7) == 4)
                         {
-                            if (dwDirectionWasLooking == 3)
-                                return 2;
-                            if (modelIndex == 432 || modelIndex == 437 || TheCamera.m_bInATunnelAndABigVehicle)
-                                return 2;
-                            if (dwDirectionWasLooking)
-                                goto LABEL_81;
-                            if (pVehicle->m_pHandlingData->m_nModelFlags & 0x4000)
-                                return 2;
-                            if (pVehicle->m_nVehicleClass != CLASS_BIG
-                                || modelIndex == 453
-                                || modelIndex == 454
-                                || modelIndex == 430
-                                || modelIndex == 460)
+                            pBaseModelInfo = CModelInfo::ms_modelInfoPtrs[pLodEntity->m_nModelIndex]->AsAtomicModelInfoPtr();
+                            if (pBaseModelInfo)
                             {
-                            LABEL_81:
-                                CRenderer::m_pFirstPersonVehicle = static_cast<CVehicle*>(pEntity);
-                                return 2;
+                                modelInfoFlags = pBaseModelInfo->m_nFlags & 0x7800;
+                                if (modelInfoFlags == 0x2000 || modelInfoFlags == 0x2800)
+                                    goto LABEL_25;
                             }
                         }
+                        break;
+                    case 1:
+                        CRenderer::AddEntityToRenderList(pLodEntity, outDistance);
+                        break;
+                    case 2:
+                    LABEL_25:
+                        entityFlags = pLodEntity->m_nFlags | 0x20000;
+                        pLodEntity->m_nFlags = entityFlags;
+                        if (entityFlags & 0x200000)
+                        {
+                            slodCoors = pLodEntity->m_matrix;
+                            fPosX = &slodCoors->pos.x;
+                            if (!slodCoors)
+                                fPosX = &pLodEntity->m_placement.m_vPosn.x;
+                            fDrawDistance = 30.0;
+                            fCameraAndEntityX = CRenderer::ms_vecCameraPosition.x - *fPosX;
+
+                            // I don't know what this thing is, but I guess we need to find out later.
+                            CEntity__ * pEntity__ = (CEntity__ *)pLodEntity;
+                            if ((pLodEntity->m_nType & 7) == 2 && (pEntity__->someFlags & 1)) //  pLodEntity[19].m_placement.m_vPosn.x & 1))
+                                fDrawDistance = 200.0;
+                            fNegativeDrawDistance = -fDrawDistance;
+                            if (fCameraAndEntityX > fNegativeDrawDistance && fCameraAndEntityX < fDrawDistance)
+                            {
+                                vecEntityPosition = &slodCoors->pos;
+                                if (!slodCoors)
+                                    vecEntityPosition = &pLodEntity->m_placement.m_vPosn;
+                                fCameraAndEntityY = CRenderer::ms_vecCameraPosition.y - vecEntityPosition->y;
+                                if (fCameraAndEntityY > fNegativeDrawDistance && fCameraAndEntityY < fDrawDistance)
+                                {
+                                    nNoOfVisibleEntities = CRenderer::ms_nNoOfInVisibleEntities;
+                                    if (CRenderer::ms_nNoOfInVisibleEntities < 149)
+                                    {
+                                        CRenderer::ms_aInVisibleEntityPtrs[CRenderer::ms_nNoOfInVisibleEntities] = pLodEntity;
+                                        CRenderer::ms_nNoOfInVisibleEntities = nNoOfVisibleEntities + 1;
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    case 3:
+                        if (CStreaming::ms_disableStreaming || !pLodEntity->GetIsOnScreen() || CRenderer::ms_bInTheSky)
+                            break;
+                        if (CStreaming::ms_aInfoForModel[pLodEntity->m_nModelIndex].m_nLoadState == 1)
+                            goto LABEL_16;
+                        if (!pLodEntity->IsEntityOccluded() && bRequestModel)
+                        {
+                            CRenderer::m_loadingPriority = 1;
+                        LABEL_16:
+                            if (bRequestModel)
+                                goto LABEL_43;
+                        }
+                        if (!CRenderer::m_loadingPriority || CStreaming::ms_numModelsRequested < 1)
+                            LABEL_43:
+                        CStreaming::RequestModel(pLodEntity->m_nModelIndex, 0);
+                        break;
+                    default:
+                        break;
                     }
                 }
             }
-            if (!pEntity->m_pRwObject
-                || !(pEntity->m_nFlags & 0x80) && (!CMirrors::TypeOfMirror || pEntity->m_nModelIndex)
-                || !pEntity->IsCurrentAreaOrBarberShopInterior() && (pEntity->m_nType & 7) == 2)
-            {
-                return 0;
-            }
-            if (!pEntity->GetIsOnScreen() || pEntity->IsEntityOccluded())
-                return 2;
-
-            if (pEntity->m_nFlags & 0x40)
-            {
-                pEntity->m_nFlags = pEntity->m_nFlags & 0xFFFF7FFF;
-                CMatrixLink * entityMatrix = pEntity->m_matrix;
-                CVector *vecPosition;
-                if (entityMatrix)
-                    vecPosition = &entityMatrix->pos;
-                else
-                    vecPosition = &pEntity->m_placement.m_vPosn;
-
-                CVector out;
-                CVector * vectorSubResult = VectorSub(&out, vecPosition, &CRenderer::ms_vecCameraPosition);
-                CRenderer::AddEntityToRenderList(pEntity, vectorSubResult->Magnitude());
-                return 0;
-            }
-            return 1;
         }
-        goto LABEL_49;
-    }
-    if (pBaseModelInfo->GetModelType() == 3)
-    {
-        tTimeInfo* pModelTimeInfo = pBaseModelInfo->GetTimeInfo();
-        int wOtherTimeModel = pModelTimeInfo->m_wOtherTimeModel;          // m_wOtherTimeModel
-        if (CClock::GetIsTimeInRange(pModelTimeInfo->m_nTimeOn, pModelTimeInfo->m_nTimeOff))// m_nTimeOn, m_nTimeOff
-        {
-            if (wOtherTimeModel != -1 && CModelInfo::ms_modelInfoPtrs[wOtherTimeModel]->m_pRwObject)
-                pBaseModelInfo->m_nAlpha = -1;
-        }
-        else
-        {
-            if (wOtherTimeModel == -1 || CModelInfo::ms_modelInfoPtrs[wOtherTimeModel]->m_pRwObject)
-            {
-                pEntity->DeleteRwObject();
-                return 0;
-            }
-            bDoSomething = 0;
-        }
-    LABEL_49:
-        unsigned __int8 entityInterior = pEntity->m_nAreaCode;
-        if (entityInterior == CGame::currArea || entityInterior == 13)
-        {
-            CVector * vecPosition;
-            CEntity * pEntityLod = pEntity->m_pLod;
-            if (pEntityLod)
-            {
-                CMatrixLink *entityMatrix = pEntityLod->m_matrix;
-                if (entityMatrix)
-                    vecPosition = &entityMatrix->pos;
-                else
-                    vecPosition = &pEntityLod->m_placement.m_vPosn;
-            }
-            else
-            {
-                CMatrixLink *entityMatrix = pEntity->m_matrix;
-                if (entityMatrix)
-                    vecPosition = &entityMatrix->pos;
-                else
-                    vecPosition = &pEntity->m_placement.m_vPosn;
-            }
-            float posX = vecPosition->x;
-            float posY = vecPosition->y;
-            float posZ = vecPosition->z;
-            float distanceBetweenCameraAndEntity = sqrt(
-                (posZ - CRenderer::ms_vecCameraPosition.z)
-                * (posZ - CRenderer::ms_vecCameraPosition.z)
-                + (posY - CRenderer::ms_vecCameraPosition.y)
-                * (posY - CRenderer::ms_vecCameraPosition.y)
-                + (posX - CRenderer::ms_vecCameraPosition.x)
-                * (posX - CRenderer::ms_vecCameraPosition.x));
-            *outDistance = distanceBetweenCameraAndEntity;
-            if (distanceBetweenCameraAndEntity > 300.0)
-            {
-                float lodMultiplierAndDrawDistance = TheCamera.m_fLODDistMultiplier * pBaseModelInfo->m_fDrawDistance;
-                if (lodMultiplierAndDrawDistance > 300.0
-                    && lodMultiplierAndDrawDistance + 20.0 > distanceBetweenCameraAndEntity)
-                {
-                    *outDistance = lodMultiplierAndDrawDistance - 300.0 + distanceBetweenCameraAndEntity;
-                }
-            }
-            return CRenderer::SetupMapEntityVisibility(pEntity, pBaseModelInfo, *outDistance, bDoSomething);
-        }
-        return 0;
-    }
-    if (!(pEntity->m_nFlags & 0x80000))
-        goto LABEL_49;
-    if (!pEntity->m_pRwObject
-        || (pEntity->m_nFlags & 0x80u) == 0 && (!CMirrors::TypeOfMirror || pEntity->m_nModelIndex))
-    {
-        return 0;
-    }
-    if (!pEntity->GetIsOnScreen() || pEntity->IsEntityOccluded())
-        return 2;
-
-    if (!(pEntity->m_nFlags & 0x40))
-        return 1;
-    CMatrixLink *entityMatrix = pEntity->m_matrix;
-    CVector * vecPosition;
-    if (entityMatrix)
-        vecPosition = &entityMatrix->pos;
-    else
-        vecPosition = &pEntity->m_placement.m_vPosn;
-    CVector out;
-    CVector * vectorSubResult = VectorSub(&out, vecPosition, &CRenderer::ms_vecCameraPosition);
-    CVisibilityPlugins::InsertEntityIntoSortedList(pEntity, vectorSubResult->Magnitude());
-    pEntity->m_nFlags &= 0xFFFF7FFF;
-    return 0;
-}
+        result = maximumLoopIterations - 1;
+        iterationOver = maximumLoopIterations == 1;
+        ++_PC_Scratch;
+        --maximumLoopIterations;
+    } while (!iterationOver);
+    return result;
+} */

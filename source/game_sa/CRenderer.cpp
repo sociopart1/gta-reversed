@@ -36,7 +36,10 @@ CEntity **&gpOutEntitiesForGetObjectsInFrustum = *(CEntity ***)0xB76854;
 
 void CRenderer::InjectHooks()
 {
-    InjectHook(0x05534B0, &CRenderer::AddEntityToRenderList, PATCH_JUMP);
+    //InjectHook(0x05534B0, &CRenderer::AddEntityToRenderList, PATCH_JUMP);
+    //InjectHook(0x554230, &CRenderer::SetupEntityVisibility, PATCH_JUMP);
+    InjectHook(0x553540, &CRenderer::SetupScanLists, PATCH_JUMP);
+    
 }
 
 // Converted from cdecl void CRenderer::Init(void) 0x5531C0
@@ -77,13 +80,13 @@ void CRenderer::RemoveVehiclePedLights(CPhysical* entity) {
 void CRenderer::AddEntityToRenderList(CEntity *pEntity, float fDistance)
 {
     CBaseModelInfo* pBaseModelInfo = CModelInfo::ms_modelInfoPtrs[pEntity->m_nModelIndex];
-    pBaseModelInfo->m_nFlags &= 0xFE; // set first 7 bits to true, and 8th bit (bIsLod) to false
+    pBaseModelInfo->m_nFlagsUpperByte &= ~MODELINFO_FLAGS_LOD;
 
     if (pEntity->m_bDistanceFade >= 0)
     {
         if (pEntity->m_bDrawLast && CVisibilityPlugins::InsertEntityIntoSortedList(pEntity, fDistance))
         {
-            pEntity->m_nFlags &= 0xFFFF7FFF; // bDistanceFade
+            pEntity->m_nFlags &= ~MODELINFO_FLAGS_DISTANCE_FADE;
             return;
         }
     }
@@ -97,13 +100,13 @@ void CRenderer::AddEntityToRenderList(CEntity *pEntity, float fDistance)
 
     if (pEntity->m_nNumLodChildren && !pEntity->m_bUnderwater)
     {
-        CRenderer::ms_aVisibleLodPtrs[CRenderer::ms_nNoOfVisibleLods] = pEntity;
-        CRenderer::ms_nNoOfVisibleLods++;
+        ms_aVisibleLodPtrs[ms_nNoOfVisibleLods] = pEntity;
+        ms_nNoOfVisibleLods++;
     }
     else
     {
-        CRenderer::ms_aVisibleEntityPtrs[CRenderer::ms_nNoOfVisibleEntities] = pEntity;
-        CRenderer::ms_nNoOfVisibleEntities++;
+        ms_aVisibleEntityPtrs[ms_nNoOfVisibleEntities] = pEntity;
+        ms_nNoOfVisibleEntities++;
     }
 }
 
@@ -178,8 +181,175 @@ int CRenderer::SetupMapEntityVisibility(CEntity* entity, CBaseModelInfo* modelIn
 }
 
 // Converted from cdecl int CRenderer::SetupEntityVisibility(CEntity *entity,float &outDistance) 0x554230
-int CRenderer::SetupEntityVisibility(CEntity* entity, float& outDistance) {
-    return plugin::CallAndReturn<int, 0x554230, CEntity*, float&>(entity, outDistance);
+int CRenderer::SetupEntityVisibility(CEntity* pEntity, float * outDistance) {
+    //return plugin::CallAndReturn<int, 0x554230, CEntity*, float&>(entity, outDistance);
+    int modelIndex = pEntity->m_nModelIndex;
+    CBaseModelInfo *pBaseModelInfo = CModelInfo::ms_modelInfoPtrs[modelIndex];
+    CBaseModelInfo *pBaseAtomicModelInfo = pBaseModelInfo->AsAtomicModelInfoPtr();
+    bool bDoSomething = 1;
+    if ((pEntity->m_nType & 7) == 2)
+    {
+        unsigned int entityFlags = pEntity->m_nFlags;
+        if (entityFlags >= 0
+            && (!ms_bRenderTunnels && entityFlags & 0x40000000 || !ms_bRenderOutsideTunnels && !(entityFlags & 0x40000000)))
+        {
+            return 0;
+        }
+    }
+
+    if (!pBaseAtomicModelInfo)
+    {
+        if (pBaseModelInfo->GetModelType() != 5 && pBaseModelInfo->GetModelType() != 4)
+        {
+            if (FindPlayerVehicle(-1, 0) == pEntity)
+            {
+                if (gbFirstPersonRunThisFrame)
+                {
+                    if (CReplay::Mode != 1)
+                    {
+
+                        DWORD dwDirectionWasLooking = TheCamera.m_aCams[TheCamera.m_nActiveCam].m_nDirectionWasLooking;
+                        CAutomobile * pVehicle = FindPlayerVehicle(-1, 0);
+                        if (pVehicle->m_nVehicleClass != CLASS_LEISUREBOAT
+                            || !(pVehicle->m_doors[3].m_nDoorFlags & 0x80))
+                        {
+                            if (dwDirectionWasLooking == 3)
+                                return 2;
+                            if (modelIndex == 432 || modelIndex == 437 || TheCamera.m_bInATunnelAndABigVehicle)
+                                return 2;
+                            if (dwDirectionWasLooking)
+                                goto LABEL_81;
+                            if (pVehicle->m_pHandlingData->m_nModelFlags & 0x4000)
+                                return 2;
+                            if (pVehicle->m_nVehicleClass != CLASS_BIG
+                                || modelIndex == 453
+                                || modelIndex == 454
+                                || modelIndex == 430
+                                || modelIndex == 460)
+                            {
+                            LABEL_81:
+                                m_pFirstPersonVehicle = static_cast<CVehicle*>(pEntity);
+                                return 2;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!pEntity->m_pRwObject
+                || !(pEntity->m_nFlags & 0x80) && (!CMirrors::TypeOfMirror || pEntity->m_nModelIndex)
+                || !pEntity->IsCurrentAreaOrBarberShopInterior() && (pEntity->m_nType & 7) == 2)
+            {
+                return 0;
+            }
+            if (!pEntity->GetIsOnScreen() || pEntity->IsEntityOccluded())
+                return 2;
+
+            if (pEntity->m_nFlags & 0x40)
+            {
+                pEntity->m_nFlags = pEntity->m_nFlags & 0xFFFF7FFF;
+                CMatrixLink * entityMatrix = pEntity->m_matrix;
+                CVector *vecPosition;
+                if (entityMatrix)
+                    vecPosition = &entityMatrix->pos;
+                else
+                    vecPosition = &pEntity->m_placement.m_vPosn;
+
+                CVector out;
+                CVector * vectorSubResult = VectorSub(&out, vecPosition, &ms_vecCameraPosition);
+                AddEntityToRenderList(pEntity, vectorSubResult->Magnitude());
+                return 0;
+            }
+            return 1;
+        }
+        goto LABEL_49;
+    }
+    if (pBaseModelInfo->GetModelType() == 3)
+    {
+        tTimeInfo* pModelTimeInfo = pBaseModelInfo->GetTimeInfo();
+        int wOtherTimeModel = pModelTimeInfo->m_wOtherTimeModel;          // m_wOtherTimeModel
+        if (CClock::GetIsTimeInRange(pModelTimeInfo->m_nTimeOn, pModelTimeInfo->m_nTimeOff))// m_nTimeOn, m_nTimeOff
+        {
+            if (wOtherTimeModel != -1 && CModelInfo::ms_modelInfoPtrs[wOtherTimeModel]->m_pRwObject)
+                pBaseModelInfo->m_nAlpha = -1;
+        }
+        else
+        {
+            if (wOtherTimeModel == -1 || CModelInfo::ms_modelInfoPtrs[wOtherTimeModel]->m_pRwObject)
+            {
+                pEntity->DeleteRwObject();
+                return 0;
+            }
+            bDoSomething = 0;
+        }
+    LABEL_49:
+        unsigned __int8 entityInterior = pEntity->m_nAreaCode;
+        if (entityInterior == CGame::currArea || entityInterior == 13)
+        {
+            CVector * vecPosition;
+            CEntity * pEntityLod = pEntity->m_pLod;
+            if (pEntityLod)
+            {
+                CMatrixLink *entityMatrix = pEntityLod->m_matrix;
+                if (entityMatrix)
+                    vecPosition = &entityMatrix->pos;
+                else
+                    vecPosition = &pEntityLod->m_placement.m_vPosn;
+            }
+            else
+            {
+                CMatrixLink *entityMatrix = pEntity->m_matrix;
+                if (entityMatrix)
+                    vecPosition = &entityMatrix->pos;
+                else
+                    vecPosition = &pEntity->m_placement.m_vPosn;
+            }
+            float posX = vecPosition->x;
+            float posY = vecPosition->y;
+            float posZ = vecPosition->z;
+            float distanceBetweenCameraAndEntity = sqrt(
+                (posZ - ms_vecCameraPosition.z)
+                * (posZ - ms_vecCameraPosition.z)
+                + (posY - ms_vecCameraPosition.y)
+                * (posY - ms_vecCameraPosition.y)
+                + (posX - ms_vecCameraPosition.x)
+                * (posX - ms_vecCameraPosition.x));
+            *outDistance = distanceBetweenCameraAndEntity;
+            if (distanceBetweenCameraAndEntity > 300.0)
+            {
+                float lodMultiplierAndDrawDistance = TheCamera.m_fLODDistMultiplier * pBaseModelInfo->m_fDrawDistance;
+                if (lodMultiplierAndDrawDistance > 300.0
+                    && lodMultiplierAndDrawDistance + 20.0 > distanceBetweenCameraAndEntity)
+                {
+                    *outDistance = lodMultiplierAndDrawDistance - 300.0 + distanceBetweenCameraAndEntity;
+                }
+            }
+            return SetupMapEntityVisibility(pEntity, pBaseModelInfo, *outDistance, bDoSomething);
+        }
+        return 0;
+    }
+    if (!(pEntity->m_nFlags & 0x80000))
+        goto LABEL_49;
+    if (!pEntity->m_pRwObject
+        || (pEntity->m_nFlags & 0x80u) == 0 && (!CMirrors::TypeOfMirror || pEntity->m_nModelIndex))
+    {
+        return 0;
+    }
+    if (!pEntity->GetIsOnScreen() || pEntity->IsEntityOccluded())
+        return 2;
+
+    if (!(pEntity->m_nFlags & 0x40))
+        return 1;
+    CMatrixLink *entityMatrix = pEntity->m_matrix;
+    CVector * vecPosition;
+    if (entityMatrix)
+        vecPosition = &entityMatrix->pos;
+    else
+        vecPosition = &pEntity->m_placement.m_vPosn;
+    CVector out;
+    CVector * vectorSubResult = VectorSub(&out, vecPosition, &ms_vecCameraPosition);
+    CVisibilityPlugins::InsertEntityIntoSortedList(pEntity, vectorSubResult->Magnitude());
+    pEntity->m_nFlags &= 0xFFFF7FFF;
+    return 0;
 }
 
 // Converted from cdecl int CRenderer::SetupBigBuildingVisibility(CEntity *entity,float &outDistance) 0x554650
@@ -237,7 +407,69 @@ void CRenderer::RequestObjectsInDirection(CVector const& posn, float angle, int 
     plugin::Call<0x555CB0, CVector const&, float, int>(posn, angle, modelRequesFlags);
 }
 
+/*
+// THIS COMMENTED CODE ACTUALLY WORKS, and it's accurate.
 // Converted from cdecl void CRenderer::SetupScanLists(int sector_x, int sector_y) 0x553540
-void CRenderer::SetupScanLists(int sector_x, int sector_y) {
-    plugin::Call<0x553540, int, int>(sector_x, sector_y);
+void CRenderer::SetupScanLists(uint32_t uiSector_x, uint32_t uiSector_y) {
+    //plugin::Call<0x553540, int, int>(sector_x, sector_y);
+
+    uint32_t eax3;
+    uint32_t pRepeatSector;
+    uint32_t pSector;
+
+    eax3 = ((uiSector_y & 15) << 4) + (uiSector_x & 15);
+    pRepeatSector = (eax3 + eax3 * 2) * 4 + 0xb992b8;
+
+    uint32_t * _PC_Scratch = (uint32_t*)&PC_Scratch;
+
+    if (uiSector_x < 0 || (uiSector_y < 0 || (uiSector_x >= 0x78 ||uiSector_y >= 0x78))) {
+      
+        _PC_Scratch[0] = 0;
+        _PC_Scratch[1] = pRepeatSector;
+        _PC_Scratch[2] = pRepeatSector + 4;
+        _PC_Scratch[3] = pRepeatSector + 8;
+        _PC_Scratch[4] = 0;
+        return;
+    }
+    else {
+        pSector = (uint32_t) GetSector(uiSector_x, uiSector_y);
+        _PC_Scratch[0] = pSector; // 0
+        _PC_Scratch[1] = pRepeatSector + 8; // 4
+        _PC_Scratch[2] = pRepeatSector; // 8
+        _PC_Scratch[3] = pRepeatSector + 4; // 12
+        _PC_Scratch[4] = pSector + 4; // 16
+        return;
+        }
+  
+
+}
+*/
+
+void CRenderer::SetupScanLists(uint32_t uiSector_x, uint32_t uiSector_y) 
+{
+    uint32_t uiRepeatSectorIndex = ((uiSector_y & 15) << 4) + (uiSector_x & 15);
+    CRepeatSector * pRepeatSector = &CWorld::ms_aRepeatSectors[uiRepeatSectorIndex];
+    tScanLists * pScanLists = reinterpret_cast<tScanLists *>(&PC_Scratch);
+    if (uiSector_x < 0 || (uiSector_y < 0 || (uiSector_x >= 0x78 || uiSector_y >= 0x78)))
+    {
+        pScanLists->buildingsList = nullptr;
+        pScanLists->objectsList = &pRepeatSector->m_lists[0];
+        pScanLists->vehiclesList = &pRepeatSector->m_lists[1];
+        pScanLists->pedsList = &pRepeatSector->m_lists[2];
+        pScanLists->dummiesList = nullptr;
+
+        return;
+    }
+    else {
+        CSector * pSector = GetSector(uiSector_x, uiSector_y);
+        pScanLists->buildingsList = &pSector->m_buildings;
+        pScanLists->objectsList = &pRepeatSector->m_lists[2];
+        pScanLists->vehiclesList = &pRepeatSector->m_lists[0];
+        pScanLists->pedsList = &pRepeatSector->m_lists[1];
+        pScanLists->dummiesList = &pSector->m_dummies;
+
+        return;
+    }
+
+
 }
