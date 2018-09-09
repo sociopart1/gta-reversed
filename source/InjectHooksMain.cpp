@@ -4,7 +4,7 @@
 #pragma comment(lib, "detours.lib")
 
 typedef int(__cdecl *hCRenderer_ScanSectorList)(unsigned int uiSector_x, unsigned int uiSector_y);
-auto OLD_CRenderer_ScanSectorList = (hCRenderer_ScanSectorList)0x554230;
+auto OLD_CRenderer_ScanSectorList = (hCRenderer_ScanSectorList)0x554840;
 int __cdecl CRenderer_ScanSectorList(unsigned int uiSector_x, unsigned int uiSector_y);
 
 void InjectHooksMain(void)
@@ -15,22 +15,22 @@ void InjectHooksMain(void)
     //CStreaming::InjectHooks();
     CRenderer::InjectHooks();
 
-  /*  DetourRestoreAfterWith();
+    DetourRestoreAfterWith();
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
 
     std::printf("GOING TO HOOK FUNC NOW\n");
     DetourAttach(&(PVOID&)OLD_CRenderer_ScanSectorList, CRenderer_ScanSectorList);
-    DetourTransactionCommit();*/
+    DetourTransactionCommit();
 }
 
-/*
+
 int __cdecl CRenderer_ScanSectorList(unsigned int uiSector_x, unsigned int uiSector_y)
 {
     struct CEntity__ {
-        signed char pad20 [20];
+        signed char pad20[20];
         int32_t f20;
-        signed char pad28 [4];
+        signed char pad28[4];
         uint32_t f28;
         signed char pad34[2];
         int16_t f34;
@@ -67,6 +67,7 @@ int __cdecl CRenderer_ScanSectorList(unsigned int uiSector_x, unsigned int uiSec
     float fDrawDistance; // [esp+1Ch] [ebp+4h]
     CEntity ***_PC_Scratch; // [esp+20h] [ebp+8h]
 
+
     uiSector_x2 = uiSector_x;
     bRequestModel = 0;
     fCameraAndSectorX = (uiSector_x - 60) * 50.0 + 25.0 - CRenderer::ms_vecCameraPosition.x;
@@ -78,21 +79,52 @@ int __cdecl CRenderer_ScanSectorList(unsigned int uiSector_x, unsigned int uiSec
         bRequestModel = 1;
     }
     CRenderer::SetupScanLists(uiSector_x, uiSector_y);
-    _PC_Scratch = PC_Scratch;
+
+    _PC_Scratch = (CEntity ***)0xC8E0C8;
+
+    // CPtrListDoubleLink *** pScanLists = reinterpret_cast<CPtrListDoubleLink ***>(&PC_Scratch);
+
+    maximumLoopIterations = 5;
+
+    /*
+
+    CPtrListDoubleLink * edi8;
+
+    for (int scanListIndex = 0; scanListIndex < 5; scanListIndex++)
+    {
+        CPtrListDoubleLink * pDoubleLinkList = (CPtrListDoubleLink *)_PC_Scratch[scanListIndex];//pScanLists[scanListIndex];
+        //if (*_PC_Scratch)
+        //if (pDoubleLinkList)
+        if (*v6 && (edi8 = **v6, !!edi8))
+        {
+            std::printf("scanListIndex : %d | pDoubleLinkList : %p\n", scanListIndex, pDoubleLinkList);
+            int thecount = 0;
+            CPtrNodeDoubleLink * pDoubleLinkNode = (CPtrNodeDoubleLink *)edi8->pNode; //pDoubleLinkList->pNode; //->GetNode();
+            while (pDoubleLinkNode)
+            {
+                thecount++;
+                std::printf("pDoubleLinkNode ok | thecount : %d\n", thecount);
+                CEntity * pLodEntity = (CEntity *)pDoubleLinkNode->pItem;
+                pDoubleLinkNode = pDoubleLinkNode->pNext;
+                //pLodEntity = *ppEntity;
+                //iterationOver = pLodEntity->m_nScanCode == CWorld::ms_nCurrentScanCode;
+                //ppEntity = (CEntity **)  ((int *)ppEntity)[1];*/
+
     maximumLoopIterations = 5;
     do
     {
-        entityPointer = _PC_Scratch;
+        entityPointer = (CEntity ***)*_PC_Scratch;
         if (*_PC_Scratch)
         {
             ppEntity = *entityPointer;
             while (ppEntity)
             {
                 pLodEntity = *ppEntity;
-                iterationOver = (*ppEntity)->m_nScanCode == CWorld::ms_nCurrentScanCode;
-                ppEntity = (CEntity **)  ((int *)ppEntity)[1];
+                iterationOver = pLodEntity->m_nScanCode == CWorld::ms_nCurrentScanCode;
+                ppEntity = (CEntity **)ppEntity[1];
                 if (!iterationOver)
                 {
+
                     pLodEntity->m_nScanCode = CWorld::ms_nCurrentScanCode;
                     pLodEntity->m_nFlags &= 0xFFFDFFFF;
                     switch (CRenderer::SetupEntityVisibility(pLodEntity, &outDistance))
@@ -170,10 +202,13 @@ int __cdecl CRenderer_ScanSectorList(unsigned int uiSector_x, unsigned int uiSec
                 }
             }
         }
+        //result = 4 - scanListIndex;
+        //v6++;
         result = maximumLoopIterations - 1;
         iterationOver = maximumLoopIterations == 1;
         ++_PC_Scratch;
         --maximumLoopIterations;
-    } while (!iterationOver);
+    }
+    while (!iterationOver);
     return result;
-} */
+} 

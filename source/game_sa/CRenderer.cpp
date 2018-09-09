@@ -407,44 +407,6 @@ void CRenderer::RequestObjectsInDirection(CVector const& posn, float angle, int 
     plugin::Call<0x555CB0, CVector const&, float, int>(posn, angle, modelRequesFlags);
 }
 
-/*
-// THIS COMMENTED CODE ACTUALLY WORKS, and it's accurate.
-// Converted from cdecl void CRenderer::SetupScanLists(int sector_x, int sector_y) 0x553540
-void CRenderer::SetupScanLists(uint32_t uiSector_x, uint32_t uiSector_y) {
-    //plugin::Call<0x553540, int, int>(sector_x, sector_y);
-
-    uint32_t eax3;
-    uint32_t pRepeatSector;
-    uint32_t pSector;
-
-    eax3 = ((uiSector_y & 15) << 4) + (uiSector_x & 15);
-    pRepeatSector = (eax3 + eax3 * 2) * 4 + 0xb992b8;
-
-    uint32_t * _PC_Scratch = (uint32_t*)&PC_Scratch;
-
-    if (uiSector_x < 0 || (uiSector_y < 0 || (uiSector_x >= 0x78 ||uiSector_y >= 0x78))) {
-      
-        _PC_Scratch[0] = 0;
-        _PC_Scratch[1] = pRepeatSector;
-        _PC_Scratch[2] = pRepeatSector + 4;
-        _PC_Scratch[3] = pRepeatSector + 8;
-        _PC_Scratch[4] = 0;
-        return;
-    }
-    else {
-        pSector = (uint32_t) GetSector(uiSector_x, uiSector_y);
-        _PC_Scratch[0] = pSector; // 0
-        _PC_Scratch[1] = pRepeatSector + 8; // 4
-        _PC_Scratch[2] = pRepeatSector; // 8
-        _PC_Scratch[3] = pRepeatSector + 4; // 12
-        _PC_Scratch[4] = pSector + 4; // 16
-        return;
-        }
-  
-
-}
-*/
-
 void CRenderer::SetupScanLists(uint32_t uiSector_x, uint32_t uiSector_y) 
 {
     uint32_t uiRepeatSectorIndex = ((uiSector_y & 15) << 4) + (uiSector_x & 15);
