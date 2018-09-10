@@ -78,14 +78,14 @@ void __cdecl CRenderer_ScanSectorList(unsigned int uiSector_x, unsigned int uiSe
                         if (pLodEntity->m_bHasPreRenderEffects)
                         {
                             CMatrixLink * pEntityLodMatrix = pLodEntity->m_matrix;
-                            float * fPosX = &pLodEntity->m_placement.m_vPosn.x;
+                            CVector * vecEntityPosition = &pLodEntity->m_placement.m_vPosn;
                             if (pEntityLodMatrix)
                             {
-                                fPosX = &pEntityLodMatrix->pos.x;
+                                vecEntityPosition = &pEntityLodMatrix->pos;
                             }
 
                             float fDrawDistance = 30.0;
-                            float fCameraAndEntityX = CRenderer::ms_vecCameraPosition.x - *fPosX;
+                            float fCameraAndEntityX = CRenderer::ms_vecCameraPosition.x - vecEntityPosition->x;
 
                             if (pLodEntity->m_nType == ENTITY_TYPE_VEHICLE)
                             {
@@ -99,9 +99,6 @@ void __cdecl CRenderer_ScanSectorList(unsigned int uiSector_x, unsigned int uiSe
                             float fNegativeDrawDistance = -fDrawDistance;
                             if (fCameraAndEntityX > fNegativeDrawDistance && fCameraAndEntityX < fDrawDistance)
                             {
-                                CVector * vecEntityPosition = &pEntityLodMatrix->pos;
-                                if (!pEntityLodMatrix)
-                                    vecEntityPosition = &pLodEntity->m_placement.m_vPosn;
                                 float fCameraAndEntityY = CRenderer::ms_vecCameraPosition.y - vecEntityPosition->y;
                                 if (fCameraAndEntityY > fNegativeDrawDistance && fCameraAndEntityY < fDrawDistance)
                                 {
