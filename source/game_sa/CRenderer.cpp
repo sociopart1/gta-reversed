@@ -182,7 +182,8 @@ int CRenderer::SetupMapEntityVisibility(CEntity* entity, CBaseModelInfo* modelIn
 
 // Converted from cdecl int CRenderer::SetupEntityVisibility(CEntity *entity,float &outDistance) 0x554230
 int CRenderer::SetupEntityVisibility(CEntity* pEntity, float * outDistance) {
-    //return plugin::CallAndReturn<int, 0x554230, CEntity*, float&>(entity, outDistance);
+    return plugin::CallAndReturn<int, 0x554230, CEntity*, float *>(pEntity, outDistance);
+
     int modelIndex = pEntity->m_nModelIndex;
     CBaseModelInfo *pBaseModelInfo = CModelInfo::ms_modelInfoPtrs[modelIndex];
     CBaseModelInfo *pBaseAtomicModelInfo = pBaseModelInfo->AsAtomicModelInfoPtr();
