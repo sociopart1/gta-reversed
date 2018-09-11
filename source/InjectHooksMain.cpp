@@ -9,11 +9,11 @@ void __cdecl CRenderer_ScanSectorList(unsigned int uiSector_x, unsigned int uiSe
 
 void InjectHooksMain(void)
 {
-    //CAnimManager::InjectHooks();
-   // CTaskManager::InjectHooks();
-    //std::printf("okay, only CAnimManager and CTaskManager hooks\n ");
-    //CStreaming::InjectHooks();
-    CRenderer::InjectHooks();
+    /*CAnimManager::InjectHooks();
+    CTaskManager::InjectHooks();
+    std::printf("okay, only CAnimManager and CTaskManager hooks\n ");
+    CStreaming::InjectHooks();
+    CRenderer::InjectHooks();*/
 
     DetourRestoreAfterWith();
     DetourTransactionBegin();
@@ -62,7 +62,7 @@ void __cdecl CRenderer_ScanSectorList(unsigned int uiSector_x, unsigned int uiSe
                             CBaseModelInfo * pBaseModelInfo = CModelInfo::ms_modelInfoPtrs[pLodEntity->m_nModelIndex]->AsAtomicModelInfoPtr();
                             if (pBaseModelInfo)
                             {
-                                short modelInfoFlags = pBaseModelInfo->m_nFlags & 0x7800;
+                                unsigned short modelInfoFlags = pBaseModelInfo->m_nFlags & 0x7800;
                                 if (modelInfoFlags == 0x2000 || modelInfoFlags == 0x2800)
                                     goto LABEL_25;
                             }
