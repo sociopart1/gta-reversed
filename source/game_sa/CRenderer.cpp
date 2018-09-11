@@ -36,10 +36,9 @@ CEntity **&gpOutEntitiesForGetObjectsInFrustum = *(CEntity ***)0xB76854;
 
 void CRenderer::InjectHooks()
 {
-    //InjectHook(0x05534B0, &CRenderer::AddEntityToRenderList, PATCH_JUMP);
-    //InjectHook(0x554230, &CRenderer::SetupEntityVisibility, PATCH_JUMP);
-    InjectHook(0x553540, &CRenderer::SetupScanLists, PATCH_JUMP);
-    
+    InjectHook(0x05534B0, &CRenderer::AddEntityToRenderList, PATCH_JUMP);
+    InjectHook(0x554230, &CRenderer::SetupEntityVisibility, PATCH_JUMP);
+    InjectHook(0x553540, &CRenderer::SetupScanLists, PATCH_JUMP); 
 }
 
 // Converted from cdecl void CRenderer::Init(void) 0x5531C0
@@ -79,6 +78,9 @@ void CRenderer::RemoveVehiclePedLights(CPhysical* entity) {
 
 void CRenderer::AddEntityToRenderList(CEntity *pEntity, float fDistance)
 {
+#ifdef USE_DEFAULT_FUNCTIONS
+    plugin::Call<0x05534B0, CEntity *, float>(pEntity, fDistance);
+#else
     CBaseModelInfo* pBaseModelInfo = CModelInfo::ms_modelInfoPtrs[pEntity->m_nModelIndex];
     pBaseModelInfo->m_nFlagsUpperByte &= ~MODELINFO_FLAGS_LOD;
 
@@ -108,6 +110,7 @@ void CRenderer::AddEntityToRenderList(CEntity *pEntity, float fDistance)
         ms_aVisibleEntityPtrs[ms_nNoOfVisibleEntities] = pEntity;
         ms_nNoOfVisibleEntities++;
     }
+#endif
 }
 
 // Converted from cdecl void CRenderer::ScanSectorList_ListModels(int sector_x,int sector_y) 0x5535D0
@@ -182,8 +185,9 @@ int CRenderer::SetupMapEntityVisibility(CEntity* entity, CBaseModelInfo* modelIn
 
 // Converted from cdecl int CRenderer::SetupEntityVisibility(CEntity *entity,float &outDistance) 0x554230
 int CRenderer::SetupEntityVisibility(CEntity* pEntity, float * outDistance) {
+#ifdef USE_DEFAULT_FUNCTIONS
     return plugin::CallAndReturn<int, 0x554230, CEntity*, float *>(pEntity, outDistance);
-
+#else
     int modelIndex = pEntity->m_nModelIndex;
     CBaseModelInfo *pBaseModelInfo = CModelInfo::ms_modelInfoPtrs[modelIndex];
     CBaseModelInfo *pBaseAtomicModelInfo = pBaseModelInfo->AsAtomicModelInfoPtr();
@@ -351,6 +355,7 @@ int CRenderer::SetupEntityVisibility(CEntity* pEntity, float * outDistance) {
     CVisibilityPlugins::InsertEntityIntoSortedList(pEntity, vectorSubResult->Magnitude());
     pEntity->m_nFlags &= 0xFFFF7FFF;
     return 0;
+#endif
 }
 
 // Converted from cdecl int CRenderer::SetupBigBuildingVisibility(CEntity *entity,float &outDistance) 0x554650
@@ -410,6 +415,9 @@ void CRenderer::RequestObjectsInDirection(CVector const& posn, float angle, int 
 
 void CRenderer::SetupScanLists(uint32_t uiSector_x, uint32_t uiSector_y) 
 {
+#ifdef USE_DEFAULT_FUNCTIONS
+    plugin::Call<0x553540, uint32_t, uint32_t>(uiSector_x, uiSector_y);
+#else
     uint32_t uiRepeatSectorIndex = ((uiSector_y & 15) << 4) + (uiSector_x & 15);
     CRepeatSector * pRepeatSector = &CWorld::ms_aRepeatSectors[uiRepeatSectorIndex];
     tScanLists * pScanLists = reinterpret_cast<tScanLists *>(&PC_Scratch);
@@ -433,6 +441,5 @@ void CRenderer::SetupScanLists(uint32_t uiSector_x, uint32_t uiSector_y)
 
         return;
     }
-
-
+#endif
 }
