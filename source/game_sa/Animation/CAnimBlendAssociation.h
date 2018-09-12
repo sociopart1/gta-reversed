@@ -44,8 +44,8 @@ public:
             unsigned short m_bEnableMovement : 1;            // blends all playing animations together if set
 
             // Camera will not move with ped, and ped will go back to the initial position when animation is over 
-            unsigned short m_bLockLastX: 1;                          
-            unsigned short m_bLockLastY : 1;               
+            unsigned short m_bLockLastX : 1;                          
+            unsigned short m_bLockLastY : 1;                 // only applies if m_bLockLastX is set             
 
             unsigned short m_bf9 : 1;                        // doesn't seem to be used  
             unsigned short m_bf10 : 1;                       // doesn't seem to be used  
