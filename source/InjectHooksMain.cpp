@@ -44,7 +44,7 @@ signed int __cdecl SetupMapEntityVisibility_1
     CEntity ** ppEntityLod, RpClump **ppClump, unsigned int * pEntityFlags, 
     float * pEntityDrawDistanceMultiplied, float * pLodAndEntityDrawDistance2,
 
-    CEntity *pEntity, CBaseModelInfo *pBaseModelInfo, float fDistance
+    CEntity *pEntity, CBaseModelInfo *pBaseModelInfo, float fDistance, bool bIsTimeInRange
 )
 {
     *pReturnLocation = 0;
@@ -102,11 +102,60 @@ signed int __cdecl SetupMapEntityVisibility_1
         goto LABEL_39;
     }
 
+
     if (entityDrawDistanceMultiplied + fDistance - 20.0 >= lodAndEntityDrawDistance2)
     {
     LABEL_39:
-        *pReturnLocation = 1;
-        return NULL;
+        signed int result = 0;
+        if (pEntity->m_bDontStream)//(EntityFlags & 0x80000)
+        {
+            return 0;
+        }
+        if (pClump && fDistance - 20.0 < lodAndEntityDrawDistance2)
+        {
+            if (!pEntity->m_pRwObject
+                && (pEntity->CreateRwObject(), !pEntity->m_pRwObject))
+            {
+                return 0;
+            }
+            if ((int)pEntity->m_nFlagsUpperByte >= 0)
+                return 0;
+            if (!pEntity->GetIsOnScreen() || pEntity->IsEntityOccluded())
+            {
+                unsigned __int16 baseModelInfoFlags1 = pBaseModelInfo->m_nFlags;
+                if (!(baseModelInfoFlags1 & 1))
+                {
+                    pBaseModelInfo->m_nAlpha = -1;
+                }
+                pBaseModelInfo->m_nFlags = baseModelInfoFlags1 & 0xFFFE;
+                result = 0;
+            }
+            else
+            {
+                CEntity* pEntityLod1 = pEntity->m_pLod;
+                pEntity->m_bDistanceFade = true; // |= 0x8000u;
+                if (pEntityLod1 && pEntityLod1->m_nNumLodChildren > 1u)
+                {
+                    CRenderer::AddToLodRenderList(pEntity, fDistance);
+                    result = 0;
+                }
+                else
+                {
+                    CRenderer::AddEntityToRenderList(pEntity, fDistance);
+                    result = 0;
+                }
+            }
+            return result;
+        }
+        if (fDistance - 50.0 >= lodAndEntityDrawDistance2 || !bIsTimeInRange || pEntity->m_bIsVisible == false) //(EntityFlags & 0x80u) == 0)
+        {
+            return 0;
+        }
+        if (!pEntity->m_pRwObject)
+        {
+            pEntity->CreateRwObject();
+        }
+        return 3;
     }
     
 
@@ -114,7 +163,7 @@ signed int __cdecl SetupMapEntityVisibility_1
     return NULL;
 }
 
-DWORD RETURN_CRenderer_SetupMapEntityVisibility_1 = 0x554028;
+DWORD RETURN_CRenderer_SetupMapEntityVisibility_1 = 0x55408F;
 DWORD RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF = 0x055412D;
 void _declspec(naked) HOOK_CRenderer_SetupMapEntityVisibility_1()
 {
@@ -127,6 +176,7 @@ void _declspec(naked) HOOK_CRenderer_SetupMapEntityVisibility_1()
         push    eax
 
         // call our function
+        push    [ebp + 18h + 8] // bIsTimeInRange
         push    [ebp + 14h + 8] // distance
         push    [ebp + 10h + 8] // pBaseModelInfo
         push    [ebp + 0Ch + 8] // pEntity
@@ -150,7 +200,7 @@ void _declspec(naked) HOOK_CRenderer_SetupMapEntityVisibility_1()
         cmp     ecx, 0
         jne     CONTINUE_CRenderer_SetupMapEntityVisibility_1
 
-        add     esp, 36
+        add     esp, 40
         add     esp, 32
         pop     edi 
         pop     esi 
@@ -173,17 +223,17 @@ void _declspec(naked) HOOK_CRenderer_SetupMapEntityVisibility_1()
         cmp     ecx, 1 // inside if statement?
         jne     OUTSIDE_IF_CRenderer_SetupMapEntityVisibility_1
 
-        mov     ecx, [ebp - 12] // EntityFlags
+        /*mov     ecx, [ebp - 12] // EntityFlags
         mov     ebp, [ebp - 20] // pEntityLod
-        add     esp, 36
+        add     esp, 40
         pop     eax
         add     esp, 28
-        jmp     RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF
+        jmp     RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF*/
 
         OUTSIDE_IF_CRenderer_SetupMapEntityVisibility_1:
         mov     ecx, [ebp - 12] // EntityFlags
         mov     ebp, [ebp - 20] // pEntityLod
-        add     esp, 36
+        add     esp, 40
         pop     eax
         add     esp, 28
         jmp     RETURN_CRenderer_SetupMapEntityVisibility_1
