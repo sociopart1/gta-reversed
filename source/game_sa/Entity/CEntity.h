@@ -62,6 +62,12 @@ public:
             unsigned int m_bTunnel : 1;          // Is this model part of a tunnel
             unsigned int m_bTunnelTransition : 1;        // This model should be rendered from within and outside of the tunnel
         };
+        struct {
+            unsigned char m_nFlagsUpperByte;
+            unsigned char m_nFlagsSecondByte;
+            unsigned char m_nFlagsThirdByte;
+            unsigned char m_nFlagsLowerByte;
+        };
         unsigned int m_nFlags;
     };
     /* */
