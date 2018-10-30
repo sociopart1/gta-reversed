@@ -86,6 +86,7 @@ signed int __cdecl SetupMapEntityVisibility_1
             lodAndEntityDrawDistance2 = CRenderer::ms_lowLodDistScale * lodAndEntityDrawDistance2;
     }
 
+
     *ppEntityLod = pEntityLod; *ppClump = pClump; *pEntityFlags = EntityFlags; 
     *pEntityDrawDistanceMultiplied = entityDrawDistanceMultiplied; *pLodAndEntityDrawDistance2 = lodAndEntityDrawDistance2;
 
@@ -158,13 +159,81 @@ signed int __cdecl SetupMapEntityVisibility_1
         return 3;
     }
     
+   
+    // starts from 0x55408F
+    if (!pEntity->m_pRwObject)
+    {
+        pEntity->CreateRwObject();
+        if (!pEntity->m_pRwObject)
+        {
+            return 0;
+        }
+    }
+
+    if (static_cast<char>(pEntity->m_nFlagsUpperByte) >= 0)
+    {
+        return 0;
+    }
+
+    
+    // starts from 0x5540AB
+    /*if (pEntity->GetIsOnScreen() && !pEntity->IsEntityOccluded())
+    {
+        //pReturnLocation = 1;
+        //return NULL;
+
+       
+        unsigned int entityFlags1 = pEntity->m_nFlags;
+        unsigned int entityNewFlags;
+        if (pBaseModelInfo->m_nAlpha == -1)
+        {
+            entityNewFlags = entityFlags1 & 0xFFFF7FFF;
+        }
+        else
+        {
+            entityNewFlags = entityFlags1 | 0x8000;
+        }
+
+        pEntity->m_nFlags = entityNewFlags;
+        
+
+        *pReturnLocation = 1;
+        return NULL;
+
+        
+        if (!pEntityLod)
+        {
+            return 1;
+        }
+        if (pBaseModelInfo->m_nAlpha == -1)
+        {
+            ++pEntityLod->m_nNumLodChildrenRendered;
+        }
+        if (pEntityLod->m_nNumLodChildren <= 1u)
+        {
+            return 1;
+        }
+        CRenderer::AddToLodRenderList(pEntity, fDistance);
+        return 0; 
+    }*/
+
+    /*// starts from 0x055410D
+    unsigned short baseModelInfoFlags = pBaseModelInfo->m_nFlags;
+
+    if (!(baseModelInfoFlags & 1))
+    {
+        pBaseModelInfo->m_nAlpha = 0xFFu;
+    }
+    pBaseModelInfo->m_nFlags = baseModelInfoFlags & 0xFFFE;
+    return 2;
+    */
 
     *pReturnLocation = 2;
     return NULL;
 }
 
-DWORD RETURN_CRenderer_SetupMapEntityVisibility_1 = 0x55408F;
-DWORD RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF = 0x055412D;
+DWORD RETURN_CRenderer_SetupMapEntityVisibility_1 = 0x5540AB; //0x5540A4;
+//DWORD RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF = 0x05540E0;
 void _declspec(naked) HOOK_CRenderer_SetupMapEntityVisibility_1()
 {
     _asm
@@ -223,13 +292,17 @@ void _declspec(naked) HOOK_CRenderer_SetupMapEntityVisibility_1()
         cmp     ecx, 1 // inside if statement?
         jne     OUTSIDE_IF_CRenderer_SetupMapEntityVisibility_1
 
-        /*mov     ecx, [ebp - 12] // EntityFlags
+      /*  mov     ecx, [ebp - 12] // EntityFlags
         mov     ebp, [ebp - 20] // pEntityLod
         add     esp, 40
         pop     eax
         add     esp, 28
-        jmp     RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF*/
 
+        mov     al, 0FFh
+        test    ebp, ebp
+
+        jmp     RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF*/
+        
         OUTSIDE_IF_CRenderer_SetupMapEntityVisibility_1:
         mov     ecx, [ebp - 12] // EntityFlags
         mov     ebp, [ebp - 20] // pEntityLod
