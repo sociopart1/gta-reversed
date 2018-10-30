@@ -89,7 +89,7 @@ signed int __cdecl SetupMapEntityVisibility_1
     *ppEntityLod = pEntityLod; *ppClump = pClump; *pEntityFlags = EntityFlags; 
     *pEntityDrawDistanceMultiplied = entityDrawDistanceMultiplied; *pLodAndEntityDrawDistance2 = lodAndEntityDrawDistance2;
 
-    /*
+  
     if (!pClump)
     {
         if (pEntityLod
@@ -108,13 +108,14 @@ signed int __cdecl SetupMapEntityVisibility_1
         *pReturnLocation = 1;
         return NULL;
     }
-    */
+    
 
     *pReturnLocation = 2;
     return NULL;
 }
 
 DWORD RETURN_CRenderer_SetupMapEntityVisibility_1 = 0x554028;
+DWORD RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF = 0x055412D;
 void _declspec(naked) HOOK_CRenderer_SetupMapEntityVisibility_1()
 {
     _asm
@@ -144,7 +145,7 @@ void _declspec(naked) HOOK_CRenderer_SetupMapEntityVisibility_1()
         push    eax
         call    SetupMapEntityVisibility_1
       
-        mov     ecx, [ebp - 24]
+        mov     ecx, [ebp - 24] // dwReturnLocation
 
         cmp     ecx, 0
         jne     CONTINUE_CRenderer_SetupMapEntityVisibility_1
@@ -155,8 +156,6 @@ void _declspec(naked) HOOK_CRenderer_SetupMapEntityVisibility_1()
         pop     esi 
         pop     ebp
         retn
-
-        jmp     RETURN_CRenderer_SetupMapEntityVisibility_1
 
         CONTINUE_CRenderer_SetupMapEntityVisibility_1:
         // continue the function
@@ -169,13 +168,24 @@ void _declspec(naked) HOOK_CRenderer_SetupMapEntityVisibility_1()
         mov     [ebp + 10h + 8], ecx // insert into pBaseModelInfo a.k.a second parameter of the hooked function
 
         mov     edx, [ebp - 16] // pClump
+    
+        mov     ecx, [ebp - 24] // dwReturnLocation
+        cmp     ecx, 1 // inside if statement?
+        jne     OUTSIDE_IF_CRenderer_SetupMapEntityVisibility_1
+
         mov     ecx, [ebp - 12] // EntityFlags
         mov     ebp, [ebp - 20] // pEntityLod
         add     esp, 36
-
         pop     eax
         add     esp, 28
+        jmp     RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF
 
+        OUTSIDE_IF_CRenderer_SetupMapEntityVisibility_1:
+        mov     ecx, [ebp - 12] // EntityFlags
+        mov     ebp, [ebp - 20] // pEntityLod
+        add     esp, 36
+        pop     eax
+        add     esp, 28
         jmp     RETURN_CRenderer_SetupMapEntityVisibility_1
     }
 }
