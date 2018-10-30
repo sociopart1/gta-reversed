@@ -177,12 +177,8 @@ signed int __cdecl SetupMapEntityVisibility_1
 
     
     // starts from 0x5540AB
-    /*if (pEntity->GetIsOnScreen() && !pEntity->IsEntityOccluded())
+    if (pEntity->GetIsOnScreen() && !pEntity->IsEntityOccluded())
     {
-        //pReturnLocation = 1;
-        //return NULL;
-
-       
         unsigned int entityFlags1 = pEntity->m_nFlags;
         unsigned int entityNewFlags;
         if (pBaseModelInfo->m_nAlpha == -1)
@@ -197,14 +193,11 @@ signed int __cdecl SetupMapEntityVisibility_1
         pEntity->m_nFlags = entityNewFlags;
         
 
-        *pReturnLocation = 1;
-        return NULL;
-
-        
         if (!pEntityLod)
         {
             return 1;
         }
+        
         if (pBaseModelInfo->m_nAlpha == -1)
         {
             ++pEntityLod->m_nNumLodChildrenRendered;
@@ -214,10 +207,10 @@ signed int __cdecl SetupMapEntityVisibility_1
             return 1;
         }
         CRenderer::AddToLodRenderList(pEntity, fDistance);
-        return 0; 
-    }*/
+        return 0;
+    }
 
-    /*// starts from 0x055410D
+    // starts from 0x055410D
     unsigned short baseModelInfoFlags = pBaseModelInfo->m_nFlags;
 
     if (!(baseModelInfoFlags & 1))
@@ -226,14 +219,11 @@ signed int __cdecl SetupMapEntityVisibility_1
     }
     pBaseModelInfo->m_nFlags = baseModelInfoFlags & 0xFFFE;
     return 2;
-    */
-
-    *pReturnLocation = 2;
-    return NULL;
 }
 
-DWORD RETURN_CRenderer_SetupMapEntityVisibility_1 = 0x5540AB; //0x5540A4;
-//DWORD RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF = 0x05540E0;
+DWORD RETURN_CRenderer_SetupMapEntityVisibility_1 = 0x055410D; 
+DWORD RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF = 0x055410D; //0x5540C1;
+DWORD RETURN_EXIT_WITH_GRACE = 0x554104;
 void _declspec(naked) HOOK_CRenderer_SetupMapEntityVisibility_1()
 {
     _asm
@@ -292,17 +282,17 @@ void _declspec(naked) HOOK_CRenderer_SetupMapEntityVisibility_1()
         cmp     ecx, 1 // inside if statement?
         jne     OUTSIDE_IF_CRenderer_SetupMapEntityVisibility_1
 
-      /*  mov     ecx, [ebp - 12] // EntityFlags
+        mov     ecx, [ebp - 12] // EntityFlags
         mov     ebp, [ebp - 20] // pEntityLod
         add     esp, 40
         pop     eax
         add     esp, 28
 
-        mov     al, 0FFh
-        test    ebp, ebp
+        //mov     al, 0FFh
+        //test    ebp, ebp
+        jmp     RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF
 
-        jmp     RETURN_CRenderer_SetupMapEntityVisibility_1_INSIDE_IF*/
-        
+
         OUTSIDE_IF_CRenderer_SetupMapEntityVisibility_1:
         mov     ecx, [ebp - 12] // EntityFlags
         mov     ebp, [ebp - 20] // pEntityLod
