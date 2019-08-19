@@ -14,7 +14,17 @@ void CTaskManager::InjectHooks()
 
 // Converted from thiscall void CTaskManager::CTaskManager(CPed *ped) 0x6816A0
 CTaskManager::CTaskManager(CPed* ped) {
+#ifdef USE_DEFAULT_FUNCTIONS
     ((void(__thiscall *)(CTaskManager*, CPed*))0x6816A0)(this, ped);
+#else
+    m_pPed = ped;
+    m_aPrimaryTasks[0] = 0;
+    m_aPrimaryTasks[1] = 0;
+    m_aPrimaryTasks[2] = 0;
+    m_aPrimaryTasks[3] = 0;
+    m_aPrimaryTasks[4] = 0;
+    memset(m_aSecondaryTasks, 0, sizeof(m_aSecondaryTasks));
+#endif
 }
 
 // Converted from thiscall void CTaskManager::~CTaskManager() 0x6816D0

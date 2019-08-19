@@ -82,7 +82,7 @@ public:
         int m_nLodIndex; // -1 - without LOD model
         CEntity *m_pLod;
     };
-    unsigned char m_nNumLodChildren;
+    char m_nNumLodChildren;
     unsigned char m_nNumLodChildrenRendered;
     unsigned char m_nType : 3; // see eEntityType
     unsigned char m_nStatus : 5; // see eEntityStatus
