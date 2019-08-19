@@ -5,7 +5,7 @@
 //auto _rwStreamWriteVersionedChunkHeader = (RwStream * (__cdecl*)(RwStream * stream, int type, int size, int version, unsigned __int16 buildNum))0x7ED270;
 
 auto OLD_CTaskManager_ManageTasks = (void (__thiscall*)(CTaskManager*pThis))0x681C10;
-//void __fastcall CTaskManager_ManageTasks(CTaskManager* pThis, void* padding);
+void __fastcall CTaskManager_ManageTasks(CTaskManager* pThis, void* padding);
 
 void __cdecl HOOK_THEFUNCTION();
 
@@ -18,17 +18,17 @@ void InjectHooksMain(void)
     CRenderer::InjectHooks();*/
 
 
-    InjectHook(0x0681C10, &HOOK_THEFUNCTION, PATCH_JUMP);
+    //InjectHook(0x0681C10, &HOOK_THEFUNCTION, PATCH_JUMP);
 
-   /*
+   ///*
     DetourRestoreAfterWith();
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
 
     std::printf("GOING TO HOOK FUNC NOW\n");
-    DetourAttach(&(PVOID&)OLD_CRenderer_SetupMapEntityVisibility, CRenderer_SetupMapEntityVisibility);
+    DetourAttach(&(PVOID&)OLD_CTaskManager_ManageTasks, CTaskManager_ManageTasks);
     DetourTransactionCommit();
-    */
+    //*/
 }
 
 enum eFunctionReturnValue 
@@ -44,29 +44,98 @@ dwReturnLocation:
 2 means continue the function and it is outside of the "if" condition
 */
 
-signed int __cdecl CTaskManager_ManageTasks
-(
-    DWORD* pReturnLocation, int* piTaskIndex , CTaskManager* pThis
-)
+void __fastcall CTaskManager_ManageTasks(CTaskManager* pThis, void* padding)
 {
-    *pReturnLocation = FUNCTION_RETURN;
 
-    *piTaskIndex = 0;
-    while (!pThis->m_aPrimaryTasks[*piTaskIndex])
+    int iTaskIndex = 0;
+
+    while (!pThis->m_aPrimaryTasks[iTaskIndex])
     {
-        *piTaskIndex = *piTaskIndex + 1;
-        if (*piTaskIndex >= 5)
+        iTaskIndex = iTaskIndex + 1;
+        if (iTaskIndex >= 5)
         {
             goto PROCESS_SECONDARY_TASKS;
         }
     }
 
-    if (*piTaskIndex > -1)
+    if (iTaskIndex > -1)
     {
-        printf("iTaskIndex: %d\n", *piTaskIndex);
-        // Outside If
-        *pReturnLocation = FUNCTION_OUTSIDE_IF;
-        return 0;
+        CTask* pTask = pThis->m_aPrimaryTasks[iTaskIndex];
+        CTask* i = nullptr;
+        for (i = 0; pTask; pTask = pTask->GetSubTask())
+        {
+            i = pTask;
+        }
+
+        if (!i->IsSimple())
+        {
+            CTask* pPrimaryTask = pThis->m_aPrimaryTasks[iTaskIndex];
+            if (pPrimaryTask)
+            {
+                pPrimaryTask->DeletingDestructor(1);
+            }
+            pThis->m_aPrimaryTasks[iTaskIndex] = 0;
+            return;
+        }
+        int loopCounter = 0;
+        while (1)
+        {
+            pThis->ParentsControlChildren(pThis->m_aPrimaryTasks[iTaskIndex]);
+            CTask* pTask2 = (CTask*)pThis->m_aPrimaryTasks[iTaskIndex];
+            CTask* j = nullptr;
+            for (j = 0; pTask2; pTask2 = pTask2->GetSubTask())
+            {
+                j = pTask2;
+            }
+            if (!j->IsSimple())
+            {
+                pThis->SetNextSubTask(j->m_pParentTask);
+                CTask* pTask3 = pThis->m_aPrimaryTasks[iTaskIndex];
+                CTask* k =  nullptr;
+                for (k = 0; pTask3; pTask3 = pTask3->GetSubTask())
+                {
+                    k = pTask3;
+                }
+                if (!k->IsSimple())
+                {
+                    break;
+                }
+            }
+            CTask* v13 = pThis->m_aPrimaryTasks[iTaskIndex];
+            CTaskSimple* pSimpleTask = nullptr;
+            for (pSimpleTask = 0; v13; v13 = v13->GetSubTask())
+            {
+                pSimpleTask = static_cast<CTaskSimple * >(v13);
+            }
+            if (!pSimpleTask->ProcessPed(pThis->m_pPed))
+            {
+                goto PROCESS_SECONDARY_TASKS;
+            }
+            pThis->SetNextSubTask (pSimpleTask->m_pParentTask);
+            if (!pThis->m_aPrimaryTasks[iTaskIndex]->GetSubTask())
+            {
+                CTask* pTheTask = pThis->m_aPrimaryTasks[iTaskIndex];
+                if (pTheTask)
+                {
+                    pTheTask->DeletingDestructor(1);
+                }
+                goto LABEL_32;
+            }
+
+            loopCounter++;
+            if (loopCounter > 10)
+            {
+                goto PROCESS_SECONDARY_TASKS;
+            }
+        }
+
+        CTask* pTheTask = pThis->m_aPrimaryTasks[iTaskIndex];
+        if (pTheTask)
+        {
+            pTheTask->DeletingDestructor(1);
+        }
+    LABEL_32:
+        pThis->m_aPrimaryTasks[iTaskIndex] = 0;
     }
 
     PROCESS_SECONDARY_TASKS:
@@ -122,77 +191,5 @@ signed int __cdecl CTaskManager_ManageTasks
         totalSecondaryTasks--;
     } while (totalSecondaryTasks);
 
-    *pReturnLocation = FUNCTION_RETURN;
-    return 0;
 }
 
-
-//DWORD RETURN_THEFUNCTION = 0x554028;
-//DWORD RETURN_THEFUNCTION_INSIDE_IF = 0x055412D;
-DWORD RETURN_THEFUNCTION_OUTSIDE_IF = 0x681C31;
-void _declspec(naked) HOOK_THEFUNCTION()
-{
-    _asm
-    {
-        push    ecx
-        push    ebx
-        push    ebp
-        push    esi
-        push    edi
-
-        push    ebp
-        mov     ebp, esp
-        sub     esp, 4 * 3
-
-        push    ecx         // save this
-
-        mov     [ebp - 4], ecx
-        push    ecx             // this
-        lea     eax, [ebp - 8]  // iTaskIndex 
-        push    eax 
-        lea     eax, [ebp - 12] // dwReturnLocation
-        push    eax
-       //*
-        call    CTaskManager_ManageTasks
-
-        mov     ecx, [ebp - 12] // dwReturnLocation
-
-        cmp     ecx, 0
-        jne     CONTINUE_THEFUNCTION_CODE
-        //*/
-
-        RETURN_THEFUNCTION_CODE:
-        add     esp, 12 // clear function parameters
-        pop     ecx
-        add     esp, 12 // clear local variables
-        mov     esp, ebp
-        pop     ebp
-
-        pop     edi
-        pop     esi
-        pop     ebp
-        pop     ebx
-        pop     ecx
-        retn
-
-        CONTINUE_THEFUNCTION_CODE:
-        // continue the function
-
-        mov     esi, [ebp - 4] // this
-        mov     edi, [ebp - 8] // iTaskIndex
-        mov     ecx, [ebp - 12] // dwReturnLocation
-        cmp     ecx, 1 // inside if statement?
-        jne     RETURN_THEFUNCTION_OUTSIDE_IF_CODE
-        
-        // Execute inside If case code
-        jmp     RETURN_THEFUNCTION_CODE
-
-        RETURN_THEFUNCTION_OUTSIDE_IF_CODE:
-        add     esp, 12 // clear function parameters
-        pop     ecx
-        add     esp, 12 // clear local variables
-        mov     esp, ebp
-        pop     ebp
-        jmp     RETURN_THEFUNCTION_OUTSIDE_IF
-    }
-}
