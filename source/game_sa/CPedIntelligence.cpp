@@ -38,8 +38,8 @@ bool CPedIntelligence::IsInHearingRange(CVector const& posn) {
 }
 
 // Converted from thiscall bool CPedIntelligence::IsInSeeingRange(CVector const& posn) 0x600C60 
-bool CPedIntelligence::IsInSeeingRange(CVector const& posn) {
-    return plugin::CallMethodAndReturn<bool, 0x600C60, CPedIntelligence*, CVector const&>(this, posn);
+bool CPedIntelligence::IsInSeeingRange(CVector* posn) {
+    return plugin::CallMethodAndReturn<bool, 0x600C60, CPedIntelligence*, CVector*>(this, posn);
 }
 
 // Converted from thiscall bool CPedIntelligence::FindRespectedFriendInInformRange(void) 0x600CF0 
