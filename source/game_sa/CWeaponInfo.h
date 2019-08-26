@@ -88,6 +88,8 @@ public:
 	// weapon names array. Count: MAX_WEAPON_NAMES(50)
 	static char **ms_aWeaponNames;
 
+    int GetCrouchReloadAnimationID();
+
 	// static functions
 
 	// load weapon data file

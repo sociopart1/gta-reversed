@@ -4,9 +4,9 @@ Authors: GTA Community. See more here
 https://github.com/DK22Pac/plugin-sdk
 Do not delete this comment block. Respect others' work!
 */
-#include "common.h"
-#include <cassert>
+#include "StdInc.h"
 
+int gDefaultTaskTime = 9999999; // or 0x98967F a.k.a (one milllion - 1)
 char *gString = (char *)0xB71670;
 
 float &GAME_GRAVITY = *(float *)0x863984;
@@ -71,6 +71,14 @@ bool InTwoPlayersMode()
 CVector * VectorSub(CVector * out, CVector * from, CVector * what)
 {
     return ((CVector *(__cdecl *)(CVector *, CVector *, CVector *))0x40FE60)(out, from, what);
+}
+
+CVector* MultiplyMatrixWithVector(CVector* outPoint, CMatrix* m, CVector* point)
+{
+    outPoint->x = m->at.x * point->z + m->up.x * point->y + m->right.x * point->x + m->pos.x;
+    outPoint->y = m->at.y * point->z + m->right.y * point->x + m->up.y * point->y + m->pos.y;
+    outPoint->z = m->at.z * point->z + m->right.z * point->x + m->up.z * point->y + m->pos.z;
+    return outPoint;
 }
 
 CVector Multiply3x3(CMatrix  const& matrix, CVector  const& vec)

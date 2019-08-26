@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 
 project(GTASA C CXX)
 
@@ -28,6 +28,8 @@ add_library(gta_reversed SHARED ${_headerfiles_list} ${_sourcefiles_list})
 target_link_libraries(gta_reversed debug "${_src_root_path}/source/detours.lib")
 target_link_libraries(gta_reversed optimized "${_src_root_path}/source/detours.lib")
 
+target_compile_definitions(gta_reversed PRIVATE USE_DEFAULT_FUNCTIONS=1)
+
 foreach(_header IN ITEMS ${_headerfiles_list})
 	get_filename_component(_header_path "${_header}" PATH)
 	string(REPLACE "/" "\\" _header_path_msvc "${_header_path}")
@@ -44,4 +46,11 @@ foreach(_source IN ITEMS ${_sourcefiles_list})
 endforeach()
 
 
- 
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /YuStdInc.h")
+
+set_source_files_properties(source/StdInc.cpp
+    PROPERTIES
+    COMPILE_FLAGS "/YcStdInc.h"
+    )
+
+list(APPEND _sourcefiles_list StdInc.cpp)

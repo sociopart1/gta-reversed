@@ -183,6 +183,8 @@ public:
     
     // Functions list : Not finished
 
+    void SetTouched();
+    unsigned int GetTouchedTimeDelta();
     void UpdateMouse();
     void ReconcileTwoControllersInput(CControllerState const& controllerA, CControllerState const& controllerB);
     void SetDrunkInputDelay(int delay);
@@ -197,6 +199,8 @@ public:
     short GetSteeringUpDown();
     short GetPedWalkLeftRight();
     short GetPedWalkUpDown();
+    short GetPedWalkLeftRight(CPed* pPed);
+    short GetPedWalkUpDown(CPed* pPed);
     bool GetLookLeft();
     bool GetLookRight();
     bool GetLookBehindForCar();
@@ -210,8 +214,8 @@ public:
     short GetBrake();
     bool GetExitVehicle();
     bool ExitVehicleJustDown();
-    unsigned char GetMeleeAttack();
-    unsigned char MeleeAttackJustDown();
+    unsigned char GetMeleeAttack(bool bCheckButtonCircleStateOnly);
+    unsigned char MeleeAttackJustDown(bool bCheckButtonCircleStateOnly);
     short GetAccelerate();
     bool GetAccelerateJustDown();
     bool NextStationJustUp();
@@ -240,6 +244,11 @@ public:
     bool GroupControlBackJustDown();
     void Clear(bool enablePlayerControls, bool resetPhase);
     void UpdatePads();
+    bool WeaponJustDown(CPed* pPed);
+    bool GetEnterTargeting();
+    int GetWeapon(CPed* pPed);
+    short AimWeaponLeftRight(CPed* pPed);
+    short AimWeaponUpDown(CPed* pPed);
 };
 
 VALIDATE_SIZE(CPad, 0x134);

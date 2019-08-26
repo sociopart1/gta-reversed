@@ -110,6 +110,7 @@ public:
 	void ProcessStaticCounter();
 	void ProcessFirst();
 	void Process();
+    CTask* GetActivePrimaryTask();
 	static void operator delete(void* arg1);
 };
 
