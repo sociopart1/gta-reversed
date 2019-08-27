@@ -610,46 +610,44 @@ PED_WEAPON_AIMING_CODE:
     CVector firingPoint(0.0, 0.0, 0.0);
     CVector upVector(0.0, 0.0, 0.0);
 
-    if (pPlayerPed->m_aWeapons[pPlayerPed->m_nActiveWeaponSlot].m_nState != WEAPONSTATE_RELOADING || !pWeaponInfo->m_nFlags.bReload)
-    //if (pPlayerPed->m_aWeapons[pPlayerPed->m_nActiveWeaponSlot].m_nState != WEAPONSTATE_RELOADING 
-    //    || ((pWeaponInfo->m_nFlags4Bytes >> 12 & 1) != 0))
-    {
-        goto LABEL_187;
-    }
-    if (pIntelligence->GetTaskUseGun())
-    {
-        auto pTaskUseGun = (CTaskSimpleUseGun*)pTaskManager->GetTaskSecondary(0);
-        pTaskUseGun->ControlGun(pPlayerPed, pPlayerPed->m_pTargetedObject, 4);
-        goto LABEL_187;
-    }
 
-    int animGroupId = pWeaponInfo->m_dwAnimGroup;
-    int crouchReloadAnimID = pWeaponInfo->m_nFlags.bReload != 0 ? 226 : 0;
-    if (pPlayerPed->bIsDucking)
+    if (pPlayerPed->m_aWeapons[pPlayerPed->m_nActiveWeaponSlot].m_nState == WEAPONSTATE_RELOADING && pWeaponInfo->m_nFlags.bReload)
     {
-        if (!pWeaponInfo->GetCrouchReloadAnimationID())
-            goto LABEL_187;
-        if (!gbUnknown_8D2FE8)  // this bool is always true
-            goto LABEL_187;
-        if (!pIntelligence->GetTaskDuck(1))
-            goto LABEL_187;
-        auto pDuckTask = (CTaskSimpleDuck*)pIntelligence->GetTaskDuck(1);
-        if (pDuckTask->IsTaskInUseByOtherTasks())
-            goto LABEL_187;
-        crouchReloadAnimID = pWeaponInfo->GetCrouchReloadAnimationID();
-        if (RpAnimBlendClumpGetAssociation(pPlayerPed->m_pRwClump, crouchReloadAnimID))
-            goto LABEL_187;
-        crouchReloadAnimID = pWeaponInfo->GetCrouchReloadAnimationID();
-    }
-    else
-    {
-        if (RpAnimBlendClumpGetAssociation(pPlayerPed->m_pRwClump, crouchReloadAnimID))
+        if (!pIntelligence->GetTaskUseGun())
         {
-            goto LABEL_187;
+            int animGroupId = pWeaponInfo->m_dwAnimGroup;
+            int crouchReloadAnimID = (pWeaponInfo->m_nFlags4Bytes >> 12 & 1) != 0 ? 226 : 0;
+            if (!pPlayerPed->bIsDucking)
+            {
+                if (!RpAnimBlendClumpGetAssociation(pPlayerPed->m_pRwClump, crouchReloadAnimID))
+                {
+                    CAnimManager::BlendAnimation(pPlayerPed->m_pRwClump, animGroupId, crouchReloadAnimID, 4.0);
+                }
+            }
+            else
+            {
+                auto pDuckTask = (CTaskSimpleDuck*)pIntelligence->GetTaskDuck(1);
+                if (pWeaponInfo->GetCrouchReloadAnimationID() && gbUnknown_8D2FE8 && pDuckTask)
+                {
+                    if (!pDuckTask->IsTaskInUseByOtherTasks())
+                    {
+                        crouchReloadAnimID = pWeaponInfo->GetCrouchReloadAnimationID();
+                        if (!RpAnimBlendClumpGetAssociation(pPlayerPed->m_pRwClump, crouchReloadAnimID))
+                        {
+                            crouchReloadAnimID = pWeaponInfo->GetCrouchReloadAnimationID();
+                            CAnimManager::BlendAnimation(pPlayerPed->m_pRwClump, animGroupId, crouchReloadAnimID, 4.0);
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            auto pTaskUseGun = (CTaskSimpleUseGun*)pTaskManager->GetTaskSecondary(0);
+            pTaskUseGun->ControlGun(pPlayerPed, pPlayerPed->m_pTargetedObject, 4);
         }
     }
-    CAnimManager::BlendAnimation(pPlayerPed->m_pRwClump, animGroupId, crouchReloadAnimID, 4.0);
-LABEL_187:
+
     int fightCommand = 0;
     if (!pPad->GetTarget()
         || pPlayerPed->m_pPlayerData->m_nChosenWeapon != pPlayerPed->m_nActiveWeaponSlot
@@ -708,20 +706,28 @@ LABEL_187:
             }
             pPlayerPed->Clear3rdPersonMouseTarget();
             pPlayerData->m_bFreeAiming = 0; 
-            goto LABEL_316;
+            goto MAKE_PLAYER_LOOK_AT_ENTITY;
         }
         if (!pTaskManager->GetTaskSecondary(0))
         {
             pNewSimpleUseGunTask = (CTaskSimpleUseGun*)CTask::operator new(60);
-            goto LABEL_279;
+            if (pNewSimpleUseGunTask)
+            {
+                firingPoint.x = 0.0;
+                firingPoint.y = 0.0;
+                firingPoint.z = 0.0;
+                pNewSimpleUseGunTask->Constructor(pPlayerPed->m_pTargetedObject, CVector(0.0, 0.0, 0.0), 1, 1, 0);
+            }
+
+            pTaskManager->SetTaskSecondary(pNewSimpleUseGunTask, 0);
+            goto MAKE_PLAYER_LOOK_AT_ENTITY;
         }
-    LABEL_281:
         if (pIntelligence->GetTaskUseGun())
         {
             auto pTaskUseGun = (CTaskSimpleUseGun*)pTaskManager->GetTaskSecondary(0);
             pTaskUseGun->ControlGun(pPlayerPed, pPlayerPed->m_pTargetedObject, 1);
         }
-        goto LABEL_316;
+        goto MAKE_PLAYER_LOOK_AT_ENTITY;
     }
     if (!pWeaponInfo->m_nFlags.bCanAim || pPlayerData->m_bFreeAiming)
     {
@@ -884,7 +890,7 @@ LABEL_187:
         unsigned int nWeaponFire = pWeaponInfo->m_nWeaponFire;
         if (!nWeaponFire || nWeaponFire == WEAPON_FIRE_PROJECTILE || nWeaponFire == WEAPON_FIRE_USE)
         {
-            goto LABEL_316;
+            goto MAKE_PLAYER_LOOK_AT_ENTITY;
         }
     }
 
@@ -925,21 +931,26 @@ LABEL_187:
     TheCamera.UpdateAimingCoors(pTargetedObjectPos);
     if (pTaskManager->GetTaskSecondary(0))
     {
-        goto LABEL_281;
+        if (pIntelligence->GetTaskUseGun())
+        {
+            auto pTaskUseGun = (CTaskSimpleUseGun*)pTaskManager->GetTaskSecondary(0);
+            pTaskUseGun->ControlGun(pPlayerPed, pPlayerPed->m_pTargetedObject, 1);
+        }
     }
-    pNewSimpleUseGunTask = (CTaskSimpleUseGun*)CTask::operator new(60);
-LABEL_279:
-    if (pNewSimpleUseGunTask)
+    else
     {
-        firingPoint.x = 0.0;
-        firingPoint.y = 0.0;
-        firingPoint.z = 0.0;
-        pNewSimpleUseGunTask->Constructor(pPlayerPed->m_pTargetedObject, CVector(0.0, 0.0, 0.0), 1, 1, 0);
+        pNewSimpleUseGunTask = (CTaskSimpleUseGun*)CTask::operator new(60);
+        if (pNewSimpleUseGunTask)
+        {
+            firingPoint.x = 0.0;
+            firingPoint.y = 0.0;
+            firingPoint.z = 0.0;
+            pNewSimpleUseGunTask->Constructor(pPlayerPed->m_pTargetedObject, CVector(0.0, 0.0, 0.0), 1, 1, 0);
+        }
+        pTaskManager->SetTaskSecondary(pNewSimpleUseGunTask, 0);
     }
 
-    pTaskManager->SetTaskSecondary(pNewSimpleUseGunTask, 0);
-LABEL_316:
-
+MAKE_PLAYER_LOOK_AT_ENTITY:
     if (pPlayerPed->m_pTargetedObject)
     {
         pPlayerData->m_bHaveTargetSelected = 1;
@@ -949,7 +960,7 @@ LABEL_316:
     bool bTargetedPedDead = 0;
     if (!pTargetedObject)
     {
-        goto LABEL_346;
+        goto ABORT_LOOKING_IF_POSSIBLE;
     }
     if (pTargetedObject->m_nType == ENTITY_TYPE_PED && (pTargetedObject->bFallenDown || pTargetedObject->m_nPedState == PEDSTATE_DEAD))
     {
@@ -959,7 +970,7 @@ LABEL_316:
     if ((pWeaponInfo->m_nWeaponFire || pIntelligence->GetTaskFighting() && !bTargetedPedDead)
        && (pPlayerPed->bIsDucking || !pWeaponInfo->m_nFlags.bAimWithArm))
     {
-        goto LABEL_346;
+        goto ABORT_LOOKING_IF_POSSIBLE;
     }
     CMatrix* pPlayerMatrix = pPlayerPed->m_matrix;
     CVector* pPlayerPos = &pPlayerMatrix->pos;
@@ -975,7 +986,7 @@ LABEL_316:
     CVector* pUpVector = pPlayerPed->GetTopDirection(&upVector);
     if ((firingPoint.z * pUpVector->z + firingPoint.y * pUpVector->y + firingPoint.x * pUpVector->x) <= 0.0)
     {
-    LABEL_346:
+    ABORT_LOOKING_IF_POSSIBLE:
         if (pThis->m_pLookingAtEntity
             && g_ikChainMan->IsLooking(pPlayerPed)
             && g_ikChainMan->GetLookAtEntity(pPlayerPed) == pThis->m_pLookingAtEntity)
