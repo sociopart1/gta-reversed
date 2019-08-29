@@ -78,8 +78,8 @@ void __fastcall CPedIntelligence_FlushImmediately(CPedIntelligence* pThis, void*
 
     bool bIsEntityVisible = false; 
 
-    CTask* pPrimaryTask = pThis->m_TaskMgr.m_aPrimaryTasks[3];
-    CTaskSimpleHoldEntity* pTaskSimpleHoldEntityCloned = 0;
+    CTask* pPrimaryTask = pThis->m_TaskMgr.m_aPrimaryTasks[TASK_PRIMARY_PRIMARY];
+    CTaskSimpleHoldEntity* pTaskSimpleHoldEntityCloned = nullptr;
     CTaskComplex* pTaskComplexBeInGroup = nullptr;
     if (pPrimaryTask && pPrimaryTask->GetId() == TASK_COMPLEX_BE_IN_GROUP)
     {
@@ -88,39 +88,50 @@ void __fastcall CPedIntelligence_FlushImmediately(CPedIntelligence* pThis, void*
 
     CTaskSimpleHoldEntity* pTaskSimpleHoldEntity = nullptr;
     CTaskManager* pTaskManager = &pThis->m_TaskMgr;
-    CTask* pSecondaryTask = pTaskManager->GetTaskSecondary(4);
+    CTask* pSecondaryTask = pTaskManager->GetTaskSecondary(TASK_SECONDARY_PARTIAL_ANIM);
     if (pSecondaryTask && pSecondaryTask->GetId() == TASK_SIMPLE_HOLD_ENTITY)
     {
         pTaskSimpleHoldEntity = (CTaskSimpleHoldEntity*)pSecondaryTask;
     }
 
     int objectType = -1;
-    if (!pTaskSimpleHoldEntity)
-        goto LABEL_14;
-    if (pTaskSimpleHoldEntity->GetId() != TASK_SIMPLE_HOLD_ENTITY)
-        goto LABEL_14;
-    CObject* pObjectToHold = pTaskSimpleHoldEntity->m_pObjectToHold;
-    if (!pObjectToHold)
-        goto LABEL_14;
-    if (pObjectToHold->m_nType != ENTITY_TYPE_OBJECT)
+    CObject* pObjectToHold = nullptr;
+    if (pTaskSimpleHoldEntity)
     {
-        pTaskSimpleHoldEntityCloned = (CTaskSimpleHoldEntity*)pTaskSimpleHoldEntity->Clone();
-    LABEL_14:
-        bIsEntityVisible = bSetPrimaryDefaultTask;
-        goto LABEL_15;
+        if (pTaskSimpleHoldEntity->GetId() == TASK_SIMPLE_HOLD_ENTITY)
+        {
+            pObjectToHold = pTaskSimpleHoldEntity->m_pObjectToHold;
+            if (pObjectToHold)
+            {
+                if (pObjectToHold->m_nType == ENTITY_TYPE_OBJECT)
+                {
+                    objectType = pObjectToHold->m_nObjectType;
+                    bIsEntityVisible = pObjectToHold->m_bIsVisible;
+                    pTaskSimpleHoldEntityCloned = (CTaskSimpleHoldEntity*)pTaskSimpleHoldEntity->Clone();
+                }
+                else
+                {
+                    pTaskSimpleHoldEntityCloned = (CTaskSimpleHoldEntity*)pTaskSimpleHoldEntity->Clone();
+                    bIsEntityVisible = bSetPrimaryDefaultTask;
+                }
+            }
+        }
     }
-    objectType = pObjectToHold->m_nObjectType;
-    bIsEntityVisible = pObjectToHold->m_bIsVisible;
-    pTaskSimpleHoldEntityCloned = (CTaskSimpleHoldEntity*)pTaskSimpleHoldEntity->Clone();
-LABEL_15:
-    pSecondaryTask = pTaskManager->GetTaskSecondary(3);
+
+    if (objectType == -1)
+    {
+        // seriously? 
+        bIsEntityVisible = bSetPrimaryDefaultTask;
+    }
+
+    pSecondaryTask = pTaskManager->GetTaskSecondary(TASK_SECONDARY_FACIAL_COMPLEX);
     CTaskComplex* pTaskComplexFacial = nullptr;
     if (pSecondaryTask && pSecondaryTask->GetId() == TASK_COMPLEX_FACIAL)
     {
         pTaskComplexFacial = (CTaskComplex*)pSecondaryTask->Clone();
     }
 
-    pThis->m_eventGroup.Flush(1);
+    pThis->m_eventGroup.Flush(true);
     pThis->m_eventHandler.FlushImmediately();
     pTaskManager->FlushImmediately();
     CPedScriptedTaskRecord::Process();
@@ -134,7 +145,7 @@ LABEL_15:
         else
         {
             pPedGroup->m_groupIntelligence.ComputeDefaultTasks(pThis->m_pPed);
-            pTaskManager->SetTask(pTaskComplexBeInGroup, 3, 0);
+            pTaskManager->SetTask(pTaskComplexBeInGroup, TASK_PRIMARY_PRIMARY, 0);
         }
     }
     if (pTaskSimpleHoldEntityCloned)
@@ -147,12 +158,12 @@ LABEL_15:
                 pTaskSimpleHoldEntityCloned->m_pObjectToHold->m_bIsVisible = 1;
             }
         }
-        pTaskManager->SetTaskSecondary(pTaskSimpleHoldEntityCloned, 4);
+        pTaskManager->SetTaskSecondary(pTaskSimpleHoldEntityCloned, TASK_SECONDARY_PARTIAL_ANIM);
         pTaskSimpleHoldEntityCloned->ProcessPed(pThis->m_pPed);
     }
     if (pTaskComplexFacial)
     {
-        pTaskManager->SetTaskSecondary(pTaskComplexFacial, 3);
+        pTaskManager->SetTaskSecondary(pTaskComplexFacial, TASK_SECONDARY_FACIAL_COMPLEX); 
     }
     if (bSetPrimaryDefaultTask)
     {
@@ -162,7 +173,7 @@ LABEL_15:
             if (pTaskSimplePlayerOnFoot)
             {
                 pTaskSimplePlayerOnFoot->Constructor();
-                pTaskManager->SetTask(pTaskSimplePlayerOnFoot, 4, 0);
+                pTaskManager->SetTask(pTaskSimplePlayerOnFoot, TASK_PRIMARY_DEFAULT, 0);
                 return;
             }
         }
@@ -171,7 +182,7 @@ LABEL_15:
             if (pThis->m_pPed->m_nCreatedBy != 2)
             {
                 auto pTaskComplexWander = CTaskComplexWander::GetWanderTaskByPedType(pThis->m_pPed);
-                pTaskManager->SetTask(pTaskComplexWander, 4, 0);
+                pTaskManager->SetTask(pTaskComplexWander, TASK_PRIMARY_DEFAULT, 0);
                 return;
             }
 
@@ -179,7 +190,7 @@ LABEL_15:
             if (pTaskSimpleStandStill)
             {
                 pTaskSimpleStandStill->Constructor(0, 1, 0, 8.0);
-                pTaskManager->SetTask(pTaskSimpleStandStill, 4, 0);
+                pTaskManager->SetTask(pTaskSimpleStandStill, TASK_PRIMARY_DEFAULT, 0);
                 return;
             }
         }
