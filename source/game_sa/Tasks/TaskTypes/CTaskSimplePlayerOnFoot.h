@@ -29,7 +29,7 @@ public:
     CTaskSimplePlayerOnFoot* Constructor();
     CTaskSimplePlayerOnFoot* Destructor();
     bool ProcessPed(CPed* pPed);
-    bool ProcessPlayerWeapon(CPlayerPed* pPlayerPed);
+    void ProcessPlayerWeapon(CPlayerPed* pPlayerPed);
     void PlayIdleAnimations(CPed* pPed);
     void PlayerControlFighter(CPlayerPed* pPlayerPed);
     void PlayerControlZeldaWeapon(CPlayerPed* pPlayerPed);
