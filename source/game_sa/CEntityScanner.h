@@ -8,16 +8,19 @@
 
 #include "PluginBase.h"
 
-class  CEntityScanner {
+class CEntity;
+
+class CEntityScanner {
 protected:
     void *vtable;
 public:
     int field_4;
     unsigned int   m_nCount;
-    class CEntity *m_apEntities[16];
-    int field_4C;
+    CEntity* m_apEntities[16];
+    CEntity* m_pClosestEntityInRange;
 
     void Clear();
+    void ScanForEntitiesInRange(int arg2, CPed* pPed);
 };
 
 VALIDATE_SIZE(CEntityScanner, 0x50);

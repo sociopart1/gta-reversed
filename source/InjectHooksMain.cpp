@@ -3,21 +3,9 @@
 
 #pragma comment(lib, "detours.lib")
 
-auto OLD_CPedIntelligence_TestForStealthKill = (bool (__thiscall*)(CPedIntelligence *pThis, CPed *pPed, char bFullTest))0x601E00;
-//auto OLD_CPedIntelligence_SetTaskDuckSecondary = (void (__thiscall*)(CPedIntelligence *pThis, __int16 nLengthOfDuck))0x0;
-// auto OLD_CPedIntelligence_SetPedDecisionMakerType = (void (__thiscall*)(CPedIntelligence *pThis, int newType))0x0;
-// auto OLD_CPedIntelligence_Respects = (bool (__thiscall*)(CPedIntelligence *pThis, CPed *pPed))0x0;
-// auto OLD_CPedIntelligence_RecordEventForScript = (void (__thiscall*)(CPedIntelligence *pThis, int eventId, int eventPriority))0x0;
-// auto OLD_CPedIntelligence_ProcessStaticCounter = (void (__thiscall*)(CPedIntelligence *pThis))0x0;
-// auto OLD_CPedIntelligence_ProcessFirst = (void (__thiscall*)(CPedIntelligence *pThis))0x0;
-// auto OLD_CPedIntelligence_ProcessAfterProcCol = (void (__thiscall*)(CPedIntelligence *pThis))0x0;
-// auto OLD_CPedIntelligence_ProcessAfterPreRender = (void (__thiscall*)(CPedIntelligence *pThis))0x0;
-// auto OLD_CPedIntelligence_Process = (void (__thiscall*)(CPedIntelligence *pThis))0x0;
-// auto OLD_CPedIntelligence_LookAtInterestingEntities = (void (__thiscall*)(void *pThis))0x0;
-// auto OLD_CPedIntelligence_IsRespondingToEvent = (bool (__thiscall*)(CPedIntelligence *pThis, int eventType))0x0;
-// auto OLD_CPedIntelligence_IsPedGoingForCarDoor = (bool (__thiscall*)(CPedIntelligence *pThis))0x0;
-
-bool __fastcall CPedIntelligence_TestForStealthKill (CPedIntelligence* pThis, void* padding, CPed* pPed, char bFullTest);
+//bool __thiscall CPhysical_ProcessShiftSectorList(CPhysical* pThis)
+auto OLD_CPhysical_ProcessShiftSectorList = (bool(__thiscall*) (CPhysical * pThis, void* padding, int sectorX, int sectorY))0x0546670;
+bool __fastcall CPhysical_ProcessShiftSectorList(CPhysical* pThis, void* padding, int sectorX, int sectorY);
 
 void __cdecl HOOK_THEFUNCTION();
 
@@ -29,8 +17,7 @@ void InjectHooksMain(void)
     CStreaming::InjectHooks();
     CRenderer::InjectHooks();*/
 
-    //InjectHook(0x0681C10, &HOOK_THEFUNCTION, PATCH_JUMP);
-
+    //HookInstall(0x54DB10, &CPhysical::ProcessShift_Reversed, 6);
 
     ///*
     DetourRestoreAfterWith();
@@ -38,7 +25,7 @@ void InjectHooksMain(void)
     DetourUpdateThread(GetCurrentThread());
 
     std::printf("GOING TO HOOK FUNC NOW\n");
-    DetourAttach(&(PVOID&)OLD_CPedIntelligence_TestForStealthKill, CPedIntelligence_TestForStealthKill );
+    DetourAttach(&(PVOID&)OLD_CPhysical_ProcessShiftSectorList, CPhysical_ProcessShiftSectorList);
     DetourTransactionCommit();
     //*/
 }
@@ -66,106 +53,246 @@ enum eFunctionReturnValue
     FUNCTION_SOMELABEL = 4
 };
 
-bool __fastcall CPedIntelligence_TestForStealthKill(CPedIntelligence* pThis, void* padding, CPed* pTarget, char bFullTest)
+
+bool __fastcall CPhysical_ProcessShiftSectorList(CPhysical* pThis, void* padding, int sectorX, int sectorY)
 {
-    printf(" calling CPedIntelligence_TestForStealthKill \n");
+    printf(" calling CPhysical_ProcessShiftSectorList \n");
 
-    bool result; // al
-    int acquaintancesID4; // ebp
-    int acquaintancesID3; // edi
-    CPedGroup* pPedGroup; // eax
-    CGroupEventHandler* pGroupEventHandler; // ecx
-    CVector bonePosition; // [esp+8h] [ebp-18h]
-    CVector vecOutput; // [esp+14h] [ebp-Ch]
 
-    if (pTarget->bInVehicle)
-    {
-        return 0;
-    }
+    CBaseModelInfo* pModelInfo = CModelInfo::ms_modelInfoPtrs[pThis->m_nModelIndex];
+    float fBoundingSphereRadius = pModelInfo->m_pColModel->m_boundSphere.m_fRadius;
+    float fMaxColPointDepth = 0.0;
+    CVector vecNormalizedShift (0.0, 0.0, 0.0);
+    CVector vecShift (0.0, 0.0, 0.0);
+    CColPoint colPoints[32];
+    CVector vecBoundCentre;
 
-    bonePosition.x = 0.0;
-    bonePosition.y = 0.0;
-    bonePosition.z = 0.0;
+    pThis->GetBoundCentre(&vecBoundCentre);
 
-    pTarget->GetBonePosition((RwV3d &)bonePosition, BONE_HEAD, 0);
+    CSector* pSector = GetSector(sectorX, sectorY);
+    CRepeatSector* pRepeatSector = GetRepeatSector(sectorX, sectorY);
 
-    if (pTarget->bIsDucking || pTarget->m_fHealth < 1.0)
+    int totalColPointsWithAcceptableSurfaces = 0;
+    int scanListIndex = 4;
+    do
     {
-        goto RETURN_FALSE;
-    }
-
-    CMatrixLink* pTargetMatrix = pTarget->m_matrix;
-    CVector* pTargetPos = &pTarget->m_placement.m_vPosn;
-    if (pTargetMatrix)
-    {
-        pTargetPos = &pTargetMatrix->pos;
-    }
-    if (bonePosition.z < pTargetPos->z)
-    {
-        goto RETURN_FALSE;
-    }
-    if (bFullTest)
-    {
-        goto RETURN_TRUE;
-    }
-
-    if (pTarget->m_nMoveState >= PEDMOVE_RUN)
-    {
-        goto RETURN_FALSE;
-    }
-
-    CVector* pPedPos = &pThis->m_pPed->m_placement.m_vPosn;
-    CMatrixLink* pPedMatrix = pThis->m_pPed->m_matrix;
-    if (pPedMatrix)
-    {
-        pPedPos = &pPedMatrix->pos;
-    }
-
-    VectorSub(&vecOutput, pTargetPos, pPedPos);
-    if (CPedIntelligence::STEALTH_KILL_RANGE * CPedIntelligence::STEALTH_KILL_RANGE < vecOutput.Dot())
-    {
-        goto RETURN_FALSE;
-    }
-    if (vecOutput.y * pTargetMatrix->up.y
-        + vecOutput.z * pTargetMatrix->up.z
-        + vecOutput.x * pTargetMatrix->up.x <= 0.0)
-    {
-        goto RETURN_FALSE;
-    }
-
-    CTask* pActiveTask = pTarget->m_pIntelligence->m_TaskMgr.GetActiveTask();
-    if (pActiveTask)
-    {
-        if (pActiveTask->GetId() == TASK_COMPLEX_KILL_PED_ON_FOOT)
+        CPtrListDoubleLink* pDoubleLinkList = nullptr;
+        switch (--scanListIndex)
         {
-            auto pTaskComplexKillPedOnFoot = (CTaskComplexKillPedOnFoot*)pActiveTask;
-            if(pTaskComplexKillPedOnFoot->m_pTarget == pThis->m_pPed)
+        case 0: 
+            pDoubleLinkList = &pSector->m_buildings;
+            break;
+        case 1:
+            pDoubleLinkList = &pRepeatSector->m_lists[0];
+            break;
+        case 2:
+            pDoubleLinkList = &pRepeatSector->m_lists[1];
+            break;
+        case 3:
+            pDoubleLinkList = &pRepeatSector->m_lists[2];
+            break;
+        }
+        CPtrNodeDoubleLink* pNode = pDoubleLinkList->GetNode();
+        if (pDoubleLinkList->GetNode())
+        {
+            do
             {
-                goto RETURN_FALSE;
+                CPhysical* pEntity = reinterpret_cast<CPhysical*>(pNode->pItem);
+                CPed* pPedEntity = static_cast<CPed*>(pEntity);
+                CVehicle* pVehicleEntity = static_cast<CVehicle*>(pEntity);
+                pNode = pNode->pNext;
+
+                bool bCollisionDisabled = false;
+                bool bProcessEntityCollision = true;
+                if (pEntity->m_nType != ENTITY_TYPE_BUILDING
+                    && (pEntity->m_nType != ENTITY_TYPE_OBJECT || !pEntity->physicalFlags.bDisableCollisionForce))
+                {
+                    if (pThis->m_nType != ENTITY_TYPE_PED || pThis->m_nType != ENTITY_TYPE_OBJECT
+                        || (!pEntity->m_bIsStatic && !pEntity->m_bIsStaticWaitingForCollision)
+                        || pPedEntity->m_pedAudio.m_tempSound.m_nBankSlotId & 0x40)
+                    {
+                        bProcessEntityCollision = false;
+                    }
+                }
+                if (pEntity != pThis
+                    && pEntity->m_nScanCode != CWorld::ms_nCurrentScanCode
+                    && pEntity->m_bUsesCollision && (!pThis->m_bHasHitWall || bProcessEntityCollision))
+                {
+                    if (pEntity->GetIsTouching(&vecBoundCentre, fBoundingSphereRadius))
+                    {
+                      
+                        bool bUnknown1 = false, bUnknown2 = false, bUnknown3 = false;
+                        if (pEntity->m_nType == ENTITY_TYPE_BUILDING)
+                        {
+                            if (pThis->physicalFlags.bDisableCollisionForce           
+                                && (pThis->m_nType != ENTITY_TYPE_VEHICLE || pVehicleEntity->m_nVehicleSubClass == VEHICLE_TRAIN))
+                            {
+                                bCollisionDisabled = true;
+                            }
+                            else
+                            {
+                                if (pThis->m_pAttachedTo)
+                                {
+                                    unsigned char attachedEntityType = pThis->m_pAttachedTo->m_nType;
+                                    if(attachedEntityType > ENTITY_TYPE_BUILDING && attachedEntityType < ENTITY_TYPE_DUMMY
+                                        && pThis->m_pAttachedTo->physicalFlags.bDisableCollisionForce)
+                                    {
+                                        bCollisionDisabled = true;
+                                    }
+                                }
+                                else if (pThis->m_pEntityIgnoredCollision == pEntity)
+                                {
+                                    bCollisionDisabled = true;
+                                }
+                                
+                                else if (!pThis->physicalFlags.bDisableZ || pThis->physicalFlags.bApplyGravity)
+                                {
+                                    if (pThis->physicalFlags.b25)
+                                    {
+                                        if (pThis->m_nStatus)
+                                        {
+                                            if (pThis->m_nStatus != STATUS_HELI && pEntity->DoesNotCollideWithFlyers())
+                                            {
+                                                bCollisionDisabled = true;
+                                            }
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    bCollisionDisabled = true;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            pThis->SpecialEntityPreCollisionStuff(pEntity, true, &bCollisionDisabled, &bUnknown1, &bUnknown2, &bUnknown3);
+                        }
+                    
+                        if (pThis->m_nType == ENTITY_TYPE_PED)
+                        {
+                            pThis->m_nPhysicalFlags |= 0x1000u;// pThis->physicalFlags.b13 = true;
+                        }
+
+                        ///*
+                        if (!bUnknown1 && !bCollisionDisabled)
+                        {
+                          
+                            pEntity->m_nScanCode = CWorld::ms_nCurrentScanCode;
+                            int totalColPointsToProcess = pThis->ProcessEntityCollision(pEntity, colPoints);
+                            if (totalColPointsToProcess > 0)
+                            {
+                                vecShift = vecNormalizedShift;
+                                //fShiftZ = vecNormalizedShift.z;
+                                //fShiftX = vecNormalizedShift.x;
+                                //fShiftY = vecNormalizedShift.y;
+                                //pColPoint = &colPoints[0].m_vecNormal.z;// v23 = ((uchar*)&ColPoints) + 24 or + 0x18
+                                CColPoint* pColPoint = &colPoints[0];
+                                int colpointIndex = totalColPointsToProcess;
+                                while (1)
+                                {
+                                    if (pColPoint->m_fDepth > 0.0)// if (depth > 0.0)
+                                    {
+                                        unsigned char surfaceTypeB = pColPoint->m_nSurfaceTypeB;
+                                        if (surfaceTypeB < SURFACE_GRASS_MEDIUM_DRY || surfaceTypeB > SURFACE_GOLFGRASS_SMOOTH)
+                                        {
+                                            totalColPointsWithAcceptableSurfaces++;
+                                            if (pThis->m_nType == ENTITY_TYPE_VEHICLE && pEntity->m_nType == ENTITY_TYPE_PED
+                                                && pColPoint->m_vecNormal.z < 0.0)  
+                                            {
+                                                vecShift.x += pColPoint->m_vecNormal.x;
+                                                vecShift.y += pColPoint->m_vecNormal.y;
+                                                vecShift.z += pColPoint->m_vecNormal.z * 0.0;
+                                                goto LABEL_67;
+                                            }
+                                            if (pThis->m_nType != ENTITY_TYPE_PED || pEntity->m_nType != ENTITY_TYPE_OBJECT
+                                                || !pEntity->physicalFlags.bDisableMoveForce
+                                                || fabs(pColPoint->m_vecNormal.z) <= 0.1)
+                                            {
+                                                vecShift += pColPoint->m_vecNormal;
+                                            LABEL_67:                                     
+                                                if (pColPoint->m_fDepth > fMaxColPointDepth)
+                                                {
+                                                    fMaxColPointDepth = pColPoint->m_fDepth;
+                                                }
+                                                goto LABEL_69;
+                                            }
+                                        }
+                                    }
+                                LABEL_69:
+                                    pColPoint++;
+                                    if (!--colpointIndex)
+                                    {
+                                        vecNormalizedShift = vecShift;
+                                        goto LABEL_72;
+                                    }
+                                }
+                            }//*/
+                        }
+                    }
+                   vecShift = vecNormalizedShift;
+                }
+            LABEL_72:
+                int i = 0;
+            } while (pNode);
+        }
+    } while (scanListIndex);
+
+    if (totalColPointsWithAcceptableSurfaces == 0)
+    {
+        return false;
+    }
+
+    float shiftMagnitude = vecShift.Magnitude();
+    if (shiftMagnitude > 1.0)
+    {   // normalize the shift boi
+        float shiftMultiplier = 1.0 / shiftMagnitude;
+        vecShift *= shiftMultiplier;
+    }
+
+    CVector& vecEntityPosition = pThis->GetPosition();
+    if (vecShift.z >= -0.5)
+    {
+        if (pThis->m_nType != ENTITY_TYPE_PED)
+        {
+            vecEntityPosition += vecShift * fMaxColPointDepth * 1.5f;
+            goto LABEL_88;
+        }
+        float fMoveEntityByOffset = 1.5f * fMaxColPointDepth;
+        if (fMoveEntityByOffset >= 0.0049999999)
+        {
+            if (fMoveEntityByOffset > 0.30000001)
+            {
+                vecEntityPosition += vecShift * fMaxColPointDepth * 0.3f;
             }
         }
+        else
+        {
+            vecEntityPosition += vecShift * fMaxColPointDepth * 0.0049999999;
+        }
+        goto LABEL_88;
     }
 
-    CEvent* pCurrentEvent = pTarget->m_pIntelligence->m_eventHandler.m_history.GetCurrentEvent();
-    if (pCurrentEvent && pCurrentEvent->GetSourceEntity() == (CEntity*)pThis->m_pPed
-        && ((acquaintancesID4 = pTarget->m_acquaintance.GetAcquaintances(4),
-            CPedType::GetPedFlag((ePedType)pThis->m_pPed->m_nPedType) & acquaintancesID4)
-            || (acquaintancesID3 = pTarget->m_acquaintance.GetAcquaintances(3),
-                CPedType::GetPedFlag((ePedType)pThis->m_pPed->m_nPedType) & acquaintancesID3))
-        || (pPedGroup = CPedGroups::GetPedsGroup(pTarget)) != 0
-        && (pGroupEventHandler = (CGroupEventHandler*)pPedGroup->m_groupIntelligence.m_pGroupEventHandler) != 0
-        && (pGroupEventHandler->GetSourceEntity() == (CEntity*)pThis->m_pPed
-        && ((acquaintancesID4 && CPedType::GetPedFlag((ePedType)pThis->m_pPed->m_nPedType) & acquaintancesID4)
-            || (acquaintancesID3 && CPedType::GetPedFlag((ePedType)pThis->m_pPed->m_nPedType) & acquaintancesID3)))
-        )
+    vecEntityPosition += vecShift * fMaxColPointDepth * 0.75f;
+
+LABEL_88:
+    if (pThis->m_nType != ENTITY_TYPE_VEHICLE || 1.5f <= 0.0)
     {
-    RETURN_FALSE:
-        result = 0;
+        return true;
     }
-    else
+
+    if (vecShift.z < 0.0)
     {
-    RETURN_TRUE:
-        result = 1;
+        vecShift.z = 0.0;
     }
-    return result;
+    /*
+    vecMoveSpeed.x = fShiftX * 0.0080000004 * CTimer::ms_fTimeStep;
+    vecMoveSpeed.y = fShiftY * 0.0080000004 * CTimer::ms_fTimeStep;
+    vecMoveSpeed.z = fShiftZ * 0.0080000004 * CTimer::ms_fTimeStep;
+    pThis->m_vecMoveSpeed.x = vecMoveSpeed.x + pThis->m_vecMoveSpeed.x;
+    pThis->m_vecMoveSpeed.y = vecMoveSpeed.y + pThis->m_vecMoveSpeed.y;
+    pThis->m_vecMoveSpeed.z = vecMoveSpeed.z + pThis->m_vecMoveSpeed.z; */
+
+    pThis->m_vecMoveSpeed += vecShift * 0.0080000004 * CTimer::ms_fTimeStep;
+    return true;
 }

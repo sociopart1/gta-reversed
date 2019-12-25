@@ -2,29 +2,56 @@
 #include "PluginBase.h"
 #include "CTaskSimple.h"
 
-class  CTaskSimpleHoldEntity : public CTaskSimple {
+enum eHoldEntityBoneFlags 
+{
+    HOLD_ENTITY_UPDATE_BONE_TRANSLATION_ONLY = 0x16
+};
+
+class CTaskSimpleHoldEntity : public CTaskSimple {
+    CTaskSimpleHoldEntity() = delete;
 protected:
     CTaskSimpleHoldEntity(plugin::dummy_func_t a) : CTaskSimple(a) {}
 public:
-    class CObject* m_pObjectToHold;
-    float m_posX; // posX, posY, and posZ might not be float. We need to confirm it
-    float m_posY;
-    float m_posZ; 
-    bool field_18;
-    bool field_19; 
-    bool field_1A[6];
-    int m_groupID;
-    int m_animID;
+    class CEntity* m_pEntityToHold;
+    CVector m_vecPosition;
+    char m_bBoneFrameId;
+    unsigned char m_bBoneFlags;
+    bool field_1A [2];
+    float m_fRotation;
+    int m_nAnimId;
+    int m_nAnimGroupId;
     int m_animFlags; // m_pAnimBlendAssociation flags
     class CAnimBlock* m_pAnimBlock; 
     class CAnimBlendHierarchy* m_pAnimBlendHierarchy; // If set, m_animID and m_groupID are ignored in StartAnim method
     bool m_bEntityDropped; 
-    bool field_35;
-    bool field_36;
+    bool m_bEntityRequiresProcessing;
+    bool m_bDisallowDroppingOnAnimEnd;
     bool field_37;
     class CAnimBlendAssociation* m_pAnimBlendAssociation; 
-    float m_fPutDownHeightZ;
+
+    CTask* DeletingDestructor(uint8_t deletingFlags) override;
+    CTask* Clone() override;
+    eTaskType GetId() override;
+    bool MakeAbortable(class CPed* ped, eAbortPriority priority, class CEvent* _event) override;
+    bool ProcessPed(class CPed* ped) override;
+    bool SetPedPosition(class CPed* ped) override;
+
+    CTaskSimpleHoldEntity* Constructor(CEntity* pEntityToHold, CVector* pPosition, char boneFrameId, unsigned char boneFlags, 
+                                       int animId, int groupId, bool bDisAllowDroppingOnAnimEnd);
+    CTaskSimpleHoldEntity* Constructor(CEntity* pEntityToHold, CVector* pPosition, char boneFrameId, unsigned char boneFlags, 
+                                      char* pAnimName, int animBlockId, int animFlags);
+    CTaskSimpleHoldEntity* Constructor(CEntity* pEntityToHold, CVector* pPosition, char boneFrameId, unsigned char boneFlags,
+                                       CAnimBlock* pAnimBlock, CAnimBlendHierarchy* pAnimHierarchy, int animFlags);
+
+    CTaskSimpleHoldEntity* Destructor();
+    void ReleaseEntity();
+    bool CanThrowEntity();
+    void PlayAnim(int groupId, int animId);
+    static void FinishAnimHoldEntityCB(CAnimBlendAssociation* pAnimAssoc, CTaskSimpleHoldEntity* pTaskHoldEntity);
+    void StartAnim(CPed* pPed);
+    void DropEntity(CPed* pPed, bool bAddEventSoundQuiet);
+    void ChoosePutDownHeight(CPed* pPed);
 };
 
-VALIDATE_SIZE(CTaskSimpleHoldEntity, 0x40);
+VALIDATE_SIZE(CTaskSimpleHoldEntity, 0x3C);
 

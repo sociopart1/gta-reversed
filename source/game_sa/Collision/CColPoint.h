@@ -27,16 +27,11 @@ public:
 	unsigned char m_nSurfaceTypeA; // see eSurfaceType
 	unsigned char m_nPieceTypeA;
     tColLighting m_nLightingA;
-private:
-    char _pad;
-public:
     // col shape 2 info
 	unsigned char m_nSurfaceTypeB; // see eSurfaceType
 	unsigned char m_nPieceTypeB;
     tColLighting m_nLightingB;
-private:
-    char _pad2;
-public:
+    char padding [2];
     // col depth
 	float         m_fDepth;
 

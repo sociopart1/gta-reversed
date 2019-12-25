@@ -14,6 +14,7 @@ public:
 
     void ClearAllEvents();
     CEvent* GetCurrentEvent();
+    bool IsRespondingToEvent(int eventType);
 };
 
 VALIDATE_SIZE(CEventHandlerHistory, 0x1C);
