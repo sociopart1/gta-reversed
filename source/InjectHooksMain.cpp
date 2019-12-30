@@ -3,9 +3,9 @@
 
 #pragma comment(lib, "detours.lib")
 
-//bool __thiscall CPhysical_ProcessShiftSectorList(CPhysical* pThis)
-auto OLD_CPhysical_ProcessShiftSectorList = (bool(__thiscall*) (CPhysical * pThis, void* padding, int sectorX, int sectorY))0x0546670;
-bool __fastcall CPhysical_ProcessShiftSectorList(CPhysical* pThis, void* padding, int sectorX, int sectorY);
+//bool __thiscall CTaskSimpleSwim_ProcessSwimmingResistance(CPhysical* pThis)
+auto OLD_CTaskSimpleSwim_ProcessSwimmingResistance = (void(__thiscall*) (CTaskSimpleSwim * pThis, CPed * pPed))0x68A1D0;
+void __fastcall CTaskSimpleSwim_ProcessSwimmingResistance(CTaskSimpleSwim* pThis, void* padding, CPed* pPed);
 
 void __cdecl HOOK_THEFUNCTION();
 
@@ -17,17 +17,17 @@ void InjectHooksMain(void)
     CStreaming::InjectHooks();
     CRenderer::InjectHooks();*/
 
-    //HookInstall(0x54DB10, &CPhysical::ProcessShift_Reversed, 6);
+    //HookInstall(0x6899F0, &CTaskSimpleSwim::ProcessSwimAnims, 7);
 
-    ///*
+  ///*
     DetourRestoreAfterWith();
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
 
     std::printf("GOING TO HOOK FUNC NOW\n");
-    DetourAttach(&(PVOID&)OLD_CPhysical_ProcessShiftSectorList, CPhysical_ProcessShiftSectorList);
+    DetourAttach(&(PVOID&)OLD_CTaskSimpleSwim_ProcessSwimmingResistance, CTaskSimpleSwim_ProcessSwimmingResistance);
     DetourTransactionCommit();
-    //*/
+  // */
 }
 /*
 enum eFunctionReturnValue
@@ -38,7 +38,7 @@ enum eFunctionReturnValue
 }; 
 */
 /*
-dwReturnLocation:
+dwReturnLocation:                                                                                                                    
 0 means that the function should return.
 1 means continue the function and it is inside of the "if" condition
 2 means continue the function and it is outside of the "if" condition
@@ -53,246 +53,202 @@ enum eFunctionReturnValue
     FUNCTION_SOMELABEL = 4
 };
 
-
-bool __fastcall CPhysical_ProcessShiftSectorList(CPhysical* pThis, void* padding, int sectorX, int sectorY)
+void __fastcall CTaskSimpleSwim_ProcessSwimmingResistance(CTaskSimpleSwim* pThis, void* padding, CPed* pPed)
 {
-    printf(" calling CPhysical_ProcessShiftSectorList \n");
+    printf(" calling CTaskSimpleSwim_ProcessSwimmingResistance \n");
 
+    float fSubmergeZ = -1.0f;
+    CVector vecPedMoveSpeed;
 
-    CBaseModelInfo* pModelInfo = CModelInfo::ms_modelInfoPtrs[pThis->m_nModelIndex];
-    float fBoundingSphereRadius = pModelInfo->m_pColModel->m_boundSphere.m_fRadius;
-    float fMaxColPointDepth = 0.0;
-    CVector vecNormalizedShift (0.0, 0.0, 0.0);
-    CVector vecShift (0.0, 0.0, 0.0);
-    CColPoint colPoints[32];
-    CVector vecBoundCentre;
-
-    pThis->GetBoundCentre(&vecBoundCentre);
-
-    CSector* pSector = GetSector(sectorX, sectorY);
-    CRepeatSector* pRepeatSector = GetRepeatSector(sectorX, sectorY);
-
-    int totalColPointsWithAcceptableSurfaces = 0;
-    int scanListIndex = 4;
-    do
+    switch (pThis->m_nSwimState)
     {
-        CPtrListDoubleLink* pDoubleLinkList = nullptr;
-        switch (--scanListIndex)
-        {
-        case 0: 
-            pDoubleLinkList = &pSector->m_buildings;
-            break;
-        case 1:
-            pDoubleLinkList = &pRepeatSector->m_lists[0];
-            break;
-        case 2:
-            pDoubleLinkList = &pRepeatSector->m_lists[1];
-            break;
-        case 3:
-            pDoubleLinkList = &pRepeatSector->m_lists[2];
-            break;
-        }
-        CPtrNodeDoubleLink* pNode = pDoubleLinkList->GetNode();
-        if (pDoubleLinkList->GetNode())
-        {
-            do
-            {
-                CPhysical* pEntity = reinterpret_cast<CPhysical*>(pNode->pItem);
-                CPed* pPedEntity = static_cast<CPed*>(pEntity);
-                CVehicle* pVehicleEntity = static_cast<CVehicle*>(pEntity);
-                pNode = pNode->pNext;
-
-                bool bCollisionDisabled = false;
-                bool bProcessEntityCollision = true;
-                if (pEntity->m_nType != ENTITY_TYPE_BUILDING
-                    && (pEntity->m_nType != ENTITY_TYPE_OBJECT || !pEntity->physicalFlags.bDisableCollisionForce))
-                {
-                    if (pThis->m_nType != ENTITY_TYPE_PED || pThis->m_nType != ENTITY_TYPE_OBJECT
-                        || (!pEntity->m_bIsStatic && !pEntity->m_bIsStaticWaitingForCollision)
-                        || pPedEntity->m_pedAudio.m_tempSound.m_nBankSlotId & 0x40)
-                    {
-                        bProcessEntityCollision = false;
-                    }
-                }
-                if (pEntity != pThis
-                    && pEntity->m_nScanCode != CWorld::ms_nCurrentScanCode
-                    && pEntity->m_bUsesCollision && (!pThis->m_bHasHitWall || bProcessEntityCollision))
-                {
-                    if (pEntity->GetIsTouching(&vecBoundCentre, fBoundingSphereRadius))
-                    {
-                      
-                        bool bUnknown1 = false, bUnknown2 = false, bUnknown3 = false;
-                        if (pEntity->m_nType == ENTITY_TYPE_BUILDING)
-                        {
-                            if (pThis->physicalFlags.bDisableCollisionForce           
-                                && (pThis->m_nType != ENTITY_TYPE_VEHICLE || pVehicleEntity->m_nVehicleSubClass == VEHICLE_TRAIN))
-                            {
-                                bCollisionDisabled = true;
-                            }
-                            else
-                            {
-                                if (pThis->m_pAttachedTo)
-                                {
-                                    unsigned char attachedEntityType = pThis->m_pAttachedTo->m_nType;
-                                    if(attachedEntityType > ENTITY_TYPE_BUILDING && attachedEntityType < ENTITY_TYPE_DUMMY
-                                        && pThis->m_pAttachedTo->physicalFlags.bDisableCollisionForce)
-                                    {
-                                        bCollisionDisabled = true;
-                                    }
-                                }
-                                else if (pThis->m_pEntityIgnoredCollision == pEntity)
-                                {
-                                    bCollisionDisabled = true;
-                                }
-                                
-                                else if (!pThis->physicalFlags.bDisableZ || pThis->physicalFlags.bApplyGravity)
-                                {
-                                    if (pThis->physicalFlags.b25)
-                                    {
-                                        if (pThis->m_nStatus)
-                                        {
-                                            if (pThis->m_nStatus != STATUS_HELI && pEntity->DoesNotCollideWithFlyers())
-                                            {
-                                                bCollisionDisabled = true;
-                                            }
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    bCollisionDisabled = true;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            pThis->SpecialEntityPreCollisionStuff(pEntity, true, &bCollisionDisabled, &bUnknown1, &bUnknown2, &bUnknown3);
-                        }
-                    
-                        if (pThis->m_nType == ENTITY_TYPE_PED)
-                        {
-                            pThis->m_nPhysicalFlags |= 0x1000u;// pThis->physicalFlags.b13 = true;
-                        }
-
-                        ///*
-                        if (!bUnknown1 && !bCollisionDisabled)
-                        {
-                          
-                            pEntity->m_nScanCode = CWorld::ms_nCurrentScanCode;
-                            int totalColPointsToProcess = pThis->ProcessEntityCollision(pEntity, colPoints);
-                            if (totalColPointsToProcess > 0)
-                            {
-                                vecShift = vecNormalizedShift;
-                                //fShiftZ = vecNormalizedShift.z;
-                                //fShiftX = vecNormalizedShift.x;
-                                //fShiftY = vecNormalizedShift.y;
-                                //pColPoint = &colPoints[0].m_vecNormal.z;// v23 = ((uchar*)&ColPoints) + 24 or + 0x18
-                                CColPoint* pColPoint = &colPoints[0];
-                                int colpointIndex = totalColPointsToProcess;
-                                while (1)
-                                {
-                                    if (pColPoint->m_fDepth > 0.0)// if (depth > 0.0)
-                                    {
-                                        unsigned char surfaceTypeB = pColPoint->m_nSurfaceTypeB;
-                                        if (surfaceTypeB < SURFACE_GRASS_MEDIUM_DRY || surfaceTypeB > SURFACE_GOLFGRASS_SMOOTH)
-                                        {
-                                            totalColPointsWithAcceptableSurfaces++;
-                                            if (pThis->m_nType == ENTITY_TYPE_VEHICLE && pEntity->m_nType == ENTITY_TYPE_PED
-                                                && pColPoint->m_vecNormal.z < 0.0)  
-                                            {
-                                                vecShift.x += pColPoint->m_vecNormal.x;
-                                                vecShift.y += pColPoint->m_vecNormal.y;
-                                                vecShift.z += pColPoint->m_vecNormal.z * 0.0;
-                                                goto LABEL_67;
-                                            }
-                                            if (pThis->m_nType != ENTITY_TYPE_PED || pEntity->m_nType != ENTITY_TYPE_OBJECT
-                                                || !pEntity->physicalFlags.bDisableMoveForce
-                                                || fabs(pColPoint->m_vecNormal.z) <= 0.1)
-                                            {
-                                                vecShift += pColPoint->m_vecNormal;
-                                            LABEL_67:                                     
-                                                if (pColPoint->m_fDepth > fMaxColPointDepth)
-                                                {
-                                                    fMaxColPointDepth = pColPoint->m_fDepth;
-                                                }
-                                                goto LABEL_69;
-                                            }
-                                        }
-                                    }
-                                LABEL_69:
-                                    pColPoint++;
-                                    if (!--colpointIndex)
-                                    {
-                                        vecNormalizedShift = vecShift;
-                                        goto LABEL_72;
-                                    }
-                                }
-                            }//*/
-                        }
-                    }
-                   vecShift = vecNormalizedShift;
-                }
-            LABEL_72:
-                int i = 0;
-            } while (pNode);
-        }
-    } while (scanListIndex);
-
-    if (totalColPointsWithAcceptableSurfaces == 0)
+    case SWIM_TREAD:
+    case SWIM_SPRINT:
+    case SWIM_SPRINTING:
     {
-        return false;
+        CAnimBlendAssociation* pAnimSwimBreast = RpAnimBlendClumpGetAssociation(pPed->m_pRwClump, SWIM_SWIM_BREAST);
+        CAnimBlendAssociation* pAnimSwimCrawl = RpAnimBlendClumpGetAssociation(pPed->m_pRwClump, SWIM_SWIM_CRAWL);
+
+        float fAnimBlendSum = 0.0f;
+        float fAnimBlendDifference = 1.0f;
+        if (pAnimSwimBreast)
+        {
+            fAnimBlendSum = 0.40000001f * pAnimSwimBreast->m_fBlendAmount;
+            fAnimBlendDifference = 1.0f - pAnimSwimBreast->m_fBlendAmount;
+        }
+
+        if (pAnimSwimCrawl)
+        {
+            fAnimBlendSum += 0.2f * pAnimSwimCrawl->m_fBlendAmount;
+            fAnimBlendDifference -= pAnimSwimCrawl->m_fBlendAmount;
+        }
+
+        if (fAnimBlendDifference < 0.0f)
+        {
+            fAnimBlendDifference = 0.0f;
+        }
+
+        fSubmergeZ = fAnimBlendDifference * 0.55000001f + fAnimBlendSum;
+
+        vecPedMoveSpeed = pPed->m_vecAnimMovingShiftLocal.x * pPed->m_matrix->right;
+        vecPedMoveSpeed += pPed->m_vecAnimMovingShiftLocal.y * pPed->m_matrix->up;
+
+        goto def_68A208;
     }
-
-    float shiftMagnitude = vecShift.Magnitude();
-    if (shiftMagnitude > 1.0)
-    {   // normalize the shift boi
-        float shiftMultiplier = 1.0 / shiftMagnitude;
-        vecShift *= shiftMultiplier;
-    }
-
-    CVector& vecEntityPosition = pThis->GetPosition();
-    if (vecShift.z >= -0.5)
+    case SWIM_DIVE_UNDERWATER:
     {
-        if (pThis->m_nType != ENTITY_TYPE_PED)
+        vecPedMoveSpeed = pPed->m_vecAnimMovingShiftLocal.x * pPed->m_matrix->right;
+        vecPedMoveSpeed += pPed->m_vecAnimMovingShiftLocal.y * pPed->m_matrix->up;
+
+        auto pAnimSwimDiveUnder = RpAnimBlendClumpGetAssociation(pPed->m_pRwClump, SWIM_SWIM_DIVE_UNDER);
+        if (pAnimSwimDiveUnder)
         {
-            vecEntityPosition += vecShift * fMaxColPointDepth * 1.5f;
-            goto LABEL_88;
+            vecPedMoveSpeed.z = pAnimSwimDiveUnder->m_fCurrentTime / pAnimSwimDiveUnder->m_pHierarchy->m_fTotalTime * -0.1f;
         }
-        float fMoveEntityByOffset = 1.5f * fMaxColPointDepth;
-        if (fMoveEntityByOffset >= 0.0049999999)
+        goto def_68A208;
+    }
+    case SWIM_UNDERWATER_SPRINTING:
+    {
+        vecPedMoveSpeed = pPed->m_vecAnimMovingShiftLocal.x * pPed->m_matrix->right;
+        vecPedMoveSpeed += cos(pThis->m_fRotationX) * pPed->m_vecAnimMovingShiftLocal.y * pPed->m_matrix->up;
+        vecPedMoveSpeed.z += sin(pThis->m_fRotationX) * pPed->m_vecAnimMovingShiftLocal.y  + 0.0099999998f;
+
+
+        def_68A208:
+        float fTheTimeStep = pow(0.89999998f, CTimer::ms_fTimeStep);
+        vecPedMoveSpeed *= (1.0f - fTheTimeStep);
+        pPed->m_vecMoveSpeed *= fTheTimeStep;
+        pPed->m_vecMoveSpeed += vecPedMoveSpeed;
+
+        const CVector& vecPedPosition = pPed->GetPosition();
+        CVector vecCheckWaterLevelPos = CTimer::ms_fTimeStep * pPed->m_vecMoveSpeed + pPed->GetPosition();
+
+        float fWaterLevel = 0.0;         
+        if (!CWaterLevel::GetWaterLevel(vecCheckWaterLevelPos.x, vecCheckWaterLevelPos.y, vecPedPosition.z, &fWaterLevel, true, 0))
         {
-            if (fMoveEntityByOffset > 0.30000001)
+            goto LABEL_67;
+        }
+        if (pThis->m_nSwimState != SWIM_UNDERWATER_SPRINTING || pThis->m_fStateChanger < 0.0)
+        {
+            goto LABEL_34;
+        }
+
+        if (vecPedPosition.z + 0.64999998f > fWaterLevel && pThis->m_fRotationX > 0.78539819f)
+        {
+            pThis->m_nSwimState = SWIM_TREAD;
+        LABEL_33:
+            pThis->m_fStateChanger = 0.0;
+            goto LABEL_34;
+        }
+        if (pThis->m_fRotationX >= 0.0)
+        {
+            if (vecPedPosition.z + 0.64999998f <= fWaterLevel)
             {
-                vecEntityPosition += vecShift * fMaxColPointDepth * 0.3f;
+                if (pThis->m_fStateChanger <= 0.001f)
+                    goto LABEL_33;
+                pThis->m_fStateChanger *= 0.94999999f;
+            }
+            else
+            {
+                float fMinimumSpeed = 0.050000001f * 0.5f;
+                if (pThis->m_fStateChanger > fMinimumSpeed)
+                {
+                    pThis->m_fStateChanger *= 0.94999999f;
+                }
+                if (pThis->m_fStateChanger < fMinimumSpeed)
+                {
+                    pThis->m_fStateChanger += CTimer::ms_fTimeStep * 0.0020000001f;
+                    pThis->m_fStateChanger = std::min(fMinimumSpeed, pThis->m_fStateChanger);
+                }
+                pThis->m_fRotationX += CTimer::ms_fTimeStep * pThis->m_fStateChanger;
+                fSubmergeZ = (0.55000001f - 0.2f) * (pThis->m_fRotationX * 1.2732395f) * 0.75f + 0.2f;
             }
         }
         else
         {
-            vecEntityPosition += vecShift * fMaxColPointDepth * 0.0049999999;
+            if (vecPedPosition.z - sin(pThis->m_fRotationX) + 0.64999998f <= fWaterLevel)
+            {
+                if (pThis->m_fStateChanger > 0.001f)
+                {
+                    pThis->m_fStateChanger *= 0.94999999f;
+                    pThis->m_fRotationX += CTimer::ms_fTimeStep * pThis->m_fStateChanger;
+                    goto LABEL_34;
+                }
+                pThis->m_fStateChanger = 0.0;
+            }
+            else
+            {
+                pThis->m_fStateChanger += CTimer::ms_fTimeStep * 0.0020000001f;
+                if (pThis->m_fStateChanger > 0.050000001f)
+                {
+                    pThis->m_fStateChanger = 0.050000001f;
+                    pThis->m_fRotationX += CTimer::ms_fTimeStep * pThis->m_fStateChanger;
+                    goto LABEL_34;
+                }
+            }
+            pThis->m_fRotationX += CTimer::ms_fTimeStep * pThis->m_fStateChanger;
         }
-        goto LABEL_88;
+    LABEL_34:
+        if (fSubmergeZ > 0.0)
+        {
+
+            fWaterLevel -= (fSubmergeZ + vecPedPosition.z);
+            float fTimeStepMoveSpeedZ = fWaterLevel / CTimer::ms_fTimeStep;
+            float fTimeStep = CTimer::ms_fTimeStep * 0.1f;
+            if (fTimeStepMoveSpeedZ > fTimeStep)
+            {
+                fTimeStepMoveSpeedZ = fTimeStep;
+            }
+
+            if (-fTimeStep > fTimeStepMoveSpeedZ)
+            {
+                fTimeStepMoveSpeedZ = -fTimeStep;
+            }
+
+            fTimeStepMoveSpeedZ -= pPed->m_vecMoveSpeed.z;
+
+            fTimeStep = CTimer::ms_fTimeStep * 0.02f;
+            if (fTimeStepMoveSpeedZ > fTimeStep)
+            {
+                fTimeStepMoveSpeedZ = fTimeStep;
+            }
+
+            if (-fTimeStep > fTimeStepMoveSpeedZ)
+            {
+                fTimeStepMoveSpeedZ = -fTimeStep;
+            }
+            pPed->m_vecMoveSpeed.z += fTimeStepMoveSpeedZ;
+        }
+    LABEL_67:
+        CVector* pPedPosition = &pPed->GetPosition();
+        if (pPedPosition->z < -69.0f)
+        {
+            pPedPosition->z = -69.0f;
+            if (pPed->m_vecMoveSpeed.z < 0.0f)
+            {
+                pPed->m_vecMoveSpeed.z = 0.0f;
+            }
+        }
+        return;
     }
-
-    vecEntityPosition += vecShift * fMaxColPointDepth * 0.75f;
-
-LABEL_88:
-    if (pThis->m_nType != ENTITY_TYPE_VEHICLE || 1.5f <= 0.0)
+    case SWIM_BACK_TO_SURFACE:
     {
-        return true;
-    }
+        auto pAnimAssociation = RpAnimBlendClumpGetAssociation(pPed->m_pRwClump, 128);
+        if (!pAnimAssociation)
+        {
+            pAnimAssociation = RpAnimBlendClumpGetAssociation(pPed->m_pRwClump, SWIM_SWIM_JUMPOUT);
+        }
 
-    if (vecShift.z < 0.0)
-    {
-        vecShift.z = 0.0;
+        if (pAnimAssociation)
+        {
+            if (pAnimAssociation->m_pHierarchy->m_fTotalTime > pAnimAssociation->m_fCurrentTime
+                && (pAnimAssociation->m_fBlendAmount >= 1.0f || pAnimAssociation->m_fBlendDelta > 0.0f))
+            {
+                float fMoveForceZ = CTimer::ms_fTimeStep * pPed->m_fMass * 0.30000001f * 0.0080000004f;
+                pPed->ApplyMoveForce(0.0f, 0.0f, fMoveForceZ);
+            }
+        }
+        return;
     }
-    /*
-    vecMoveSpeed.x = fShiftX * 0.0080000004 * CTimer::ms_fTimeStep;
-    vecMoveSpeed.y = fShiftY * 0.0080000004 * CTimer::ms_fTimeStep;
-    vecMoveSpeed.z = fShiftZ * 0.0080000004 * CTimer::ms_fTimeStep;
-    pThis->m_vecMoveSpeed.x = vecMoveSpeed.x + pThis->m_vecMoveSpeed.x;
-    pThis->m_vecMoveSpeed.y = vecMoveSpeed.y + pThis->m_vecMoveSpeed.y;
-    pThis->m_vecMoveSpeed.z = vecMoveSpeed.z + pThis->m_vecMoveSpeed.z; */
-
-    pThis->m_vecMoveSpeed += vecShift * 0.0080000004 * CTimer::ms_fTimeStep;
-    return true;
+    }
 }
