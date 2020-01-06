@@ -143,8 +143,6 @@ void __fastcall CTrain_ProcessControl(CTrain* pThis, void* padding)
                     }
                 }
             }
-
-            goto MASSIVE_CODE;
         }
         else
         {
@@ -269,7 +267,6 @@ void __fastcall CTrain_ProcessControl(CTrain* pThis, void* padding)
                 {
                     pThis->m_fTrainBrake = 0.0;
                     pThis->m_fTrainGas = static_cast<float>(pPad->GetAccelerate() - pPad->GetBrake());
-                    goto APPLY_BRAKES;
                 }
                 else
                 {
@@ -277,7 +274,6 @@ void __fastcall CTrain_ProcessControl(CTrain* pThis, void* padding)
                     {
                         pThis->m_fTrainBrake = static_cast<float>(pPad->GetBrake());
                         pThis->m_fTrainGas = static_cast<float>(pPad->GetAccelerate());
-                        goto APPLY_BRAKES;
                     }
                     else
                     {
@@ -286,12 +282,7 @@ void __fastcall CTrain_ProcessControl(CTrain* pThis, void* padding)
                     }
                 }
             }
-            goto APPLY_BRAKES;
 
-            //APPLY_BRAKES:
-            //    const int i = 0;
-
-        APPLY_BRAKES:
             if (pThis->trainFlags.bForceSlowDown)
             {
                 CVector vecPoint = pThis->GetPosition();
@@ -436,10 +427,8 @@ void __fastcall CTrain_ProcessControl(CTrain* pThis, void* padding)
                     }
                 }
             }
-            goto MASSIVE_CODE;
         }
 
-    MASSIVE_CODE:
         if (pThis->m_fCurrentRailDistance < 0.0)
         {
             do
