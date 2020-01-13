@@ -7,10 +7,16 @@
 #include "StdInc.h"
 
 float& CPhysical::PHYSICAL_SHIFT_SPEED_DAMP = *(float*)0x8CD788;
+CVector& CPhysical::fxDirection = *(CVector*)0xB73720;
 
 CRect* CPhysical::GetBoundRect(CRect* pRect)
 {
     return ((CRect*(__thiscall*)(CEntity*, CRect*))(*(void***)this)[9])(this, pRect);
+}
+
+void CPhysical::ProcessControl()
+{
+    plugin::CallMethod<0x5485E0, CPhysical*>(this);
 }
 
 void CPhysical::ProcessShift()
@@ -287,9 +293,9 @@ bool CPhysical::ApplyCollision(CEntity* entity, CColPoint& colPoint, float& fDam
 }
 
 // Converted from thiscall bool CPhysical::ApplySoftCollision(CEntity *entity,CColPoint &colPoint,float &) 0x543890
-bool CPhysical::ApplySoftCollision(CEntity* entity, CColPoint& colPoint, float& arg2)
+bool CPhysical::ApplySoftCollision(CEntity* entity, CColPoint* colPoint, float* fDamageIntensity)
 {
-    return ((bool(__thiscall*)(CPhysical*, CEntity*, CColPoint&, float&))0x543890)(this, entity, colPoint, arg2);
+    return ((bool(__thiscall*)(CPhysical*, CEntity*, CColPoint*, float*))0x543890)(this, entity, colPoint, fDamageIntensity);
 }
 
 // Converted from thiscall bool CPhysical::ApplySpringCollision(float,CVector &,CVector &,float,float,float &) 0x543C90

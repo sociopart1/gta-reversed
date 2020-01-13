@@ -120,9 +120,11 @@ public:
     CRealTimeShadow *m_pShadowData;
     
     static float& PHYSICAL_SHIFT_SPEED_DAMP;
+    static CVector& fxDirection;
 
     // originally virtual functions
     CRect* GetBoundRect(CRect* pRect) override;
+    void ProcessControl() override;
     void ProcessShift() override;
     virtual int ProcessEntityCollision(CEntity *entity, CColPoint *point);
 
@@ -150,7 +152,7 @@ public:
     bool GetHasCollidedWith(CEntity* entity);
     bool GetHasCollidedWithAnyObject();
     bool ApplyCollision(CEntity* entity, CColPoint& colPoint, float& fDamageIntensity);
-    bool ApplySoftCollision(CEntity* entity, CColPoint& colPoint, float& arg2);
+    bool ApplySoftCollision(CEntity* entity, CColPoint* colPoint, float* fDamageIntensity);
     bool ApplySpringCollision(float arg0, CVector& arg1, CVector& arg2, float arg3, float arg4, float& arg5);
     bool ApplySpringCollisionAlt(float arg0, CVector& arg1, CVector& arg2, float arg3, float arg4, CVector& arg5, float& arg6);
     bool ApplySpringDampening(float arg0, float arg1, CVector& arg2, CVector& arg3, CVector& arg4);
@@ -162,7 +164,7 @@ public:
     float GetLightingTotal();
     bool CanPhysicalBeDamaged(eWeaponType weapon, unsigned char* arg1);
     void ApplyAirResistance();
-    bool ApplyCollisionAlt(CEntity* entity, CColPoint& colPoint, float& arg2, CVector& arg3, CVector& arg4);
+    bool ApplyCollisionAlt(CEntity* entity, CColPoint& colPoint, float& fDamageIntensity, CVector& vecMoveSpeed, CVector& vecTurnSpeed);
     bool ApplyFriction(float fFriction, CColPoint* colPoint);
     bool ApplyFriction(CPhysical* physical, float fFriction, CColPoint* colPoint);
     bool ProcessShiftSectorList(int sectorX, int sectorY);

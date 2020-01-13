@@ -104,6 +104,12 @@ public:
                                    //   2783.0, 1758.0, 12.0
                                    //   2865.0, 1281.0, 12.0 }
 
+    // virtual functions
+    void ProcessControl() override;
+
+    // reversed virtual functions
+    void ProcessControl_Reversed();
+
     CTrain(int modelIndex, unsigned char createdBy);
 
     bool FindMaximumSpeedToStopAtStations(float* speed);
@@ -116,7 +122,7 @@ public:
     void RemoveRandomPassenger();
     void FindPositionOnTrackFromCoors();
     void AddNearbyPedAsRandomPassenger();
-    
+
     static void ReadAndInterpretTrackFile(char* filename, CTrainNode** nodes, int* lineCount, float* totalDist, int skipStations);
     static void Shutdown();
     static void UpdateTrains(); // dummy function
