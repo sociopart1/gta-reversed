@@ -223,9 +223,7 @@ bool __fastcall CPhysical_ProcessCollisionSectorList(CPhysical* pThis, void* pad
                     goto LABEL_297;
                 }
 
-                if (pEntity->m_nType == ENTITY_TYPE_BUILDING
-                    || pPhysicalEntity->physicalFlags.bCollidable
-                    || bCollidedEntityUnableToMove)
+                if (pEntity->m_nType == ENTITY_TYPE_BUILDING || pPhysicalEntity->physicalFlags.bCollidable || bCollidedEntityUnableToMove)
                 {
                     break;
                 }
@@ -424,7 +422,7 @@ bool __fastcall CPhysical_ProcessCollisionSectorList(CPhysical* pThis, void* pad
                                 CColPoint* pColPoint = &colPoints[colPointIndex];
                                 if (bThisOrCollidedEntityStuck
                                     || (pColPoint->m_nPieceTypeA >= 13 && pColPoint->m_nPieceTypeA <= 16)
-                                    || (pColPoint->m_nPieceTypeA >= 13 && pColPoint->m_nPieceTypeA <= 16)
+                                    || (pColPoint->m_nPieceTypeA >= 13 && pColPoint->m_nPieceTypeA <= 16) // BUG: I think it should be m_nPieceTypeB
                                     )
                                 {
                                     ++totalAcceptableColPoints;
@@ -596,12 +594,11 @@ bool __fastcall CPhysical_ProcessCollisionSectorList(CPhysical* pThis, void* pad
                 
 
             LABEL_297:
-                const int i = 0; // place holder
-            }
+                if (!pNode)
+                {
+                    goto CONTINUE_WHILE_LOOP;
+                }
 
-            if (!pNode)
-            {
-                continue;
             }
 
             pEntity->m_nScanCode = CWorld::ms_nCurrentScanCode;
@@ -812,6 +809,9 @@ bool __fastcall CPhysical_ProcessCollisionSectorList(CPhysical* pThis, void* pad
             }
             goto LABEL_263;
         }
+
+    CONTINUE_WHILE_LOOP:
+        const int i = 0;
     } while (scanListIndex);
     return bResult;
 }
