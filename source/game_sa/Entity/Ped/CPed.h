@@ -50,27 +50,6 @@ enum eFightingStyle
     STYLE_ELBOWS = 16,
 };
 
-// unknown struct used in CPhysical::ProcessShift.
-struct struc_693
-{
-    char field_0 [64];
-    union
-    {
-        struct 
-        {
-            unsigned int b01 : 1;
-            unsigned int b02 : 1;
-            unsigned int b03 : 1;
-            unsigned int b04 : 1;
-            unsigned int b05 : 1;
-            unsigned int b06 : 1;
-            unsigned int b07 : 1;
-            unsigned int b08 : 1;
-        } flags;
-        unsigned int m_nFlags;
-    };
-};
-
 class CObject;
 class CVehicle;
 
@@ -198,6 +177,7 @@ public:
             unsigned int bHasBeenRendered : 1;
             unsigned int bIsCached : 1;
             unsigned int bPushOtherPeds : 1; // GETS RESET EVERY FRAME - SET IN TASK: want to push other peds around (eg. leader of a group or ped trying to get in a car)
+            unsigned int bPedThirdFlags32 : 1; // unknown
 
             // 13th byte starts here (m_nFourthPedFlags)
             unsigned int bHasBulletProofVest : 1;
@@ -224,6 +204,8 @@ public:
             unsigned int bDeathPickupsPersist : 1;
             unsigned int bTestForShotInVehicle : 1;
             unsigned int bUsedForReplay : 1; // This ped is controlled by replay and should be removed when replay is done.
+            unsigned int bPedFourthFlags31 : 1; // unknown
+            unsigned int bPedFourthFlags32 : 1; // unknown
         };
         unsigned int m_nPedFlags;
         unsigned int m_nSecondPedFlags;
@@ -260,7 +242,7 @@ public:
     float               m_fAimingRotation;
     float               m_fHeadingChangeRate;
     float               m_fMoveAnim; // not sure about the name here
-    struc_693*          somePedStruct; // not sure about the name here
+    CPed*               m_pSomePed; // not sure about the name here
     CVector field_56C;
     CVector field_578;
     CEntity            *m_pContactEntity;

@@ -14,6 +14,7 @@
 #include <iostream>
 #include <cassert>
 
+#include "game_sa\CGlass.h"
 #include "game_sa\CBuoyancy.h"
 #include "game_sa\CEventPedToFlee.h"
 #include "game_sa\CEventPedToChase.h"
@@ -44,7 +45,6 @@
 #include "game_sa\Collision\CColStore.h"
 #include "game_sa\CPedDamageResponseCalculator.h"
 #include "game_sa\CPedDamageResponse.h"
-#include "game_sa\Enums\AnimationEnums.h"
 #include "game_sa\CWaterLevel.h"
 #include "game_sa\InlineFunctions.h"
 #include "HookSystem.h"
@@ -243,6 +243,7 @@
 #include "game_sa\Animation\CAnimBlendStaticAssociation.h"
 #include "game_sa\Animation\CAnimBlock.h"
 #include "game_sa\Animation\CAnimManager.h"
+#include "game_sa\Audio\CAudioEngine.h"
 #include "game_sa\Audio\CAEAudioEntity.h"
 #include "game_sa\Audio\CAEExplosionAudioEntity.h"
 #include "game_sa\Audio\CAEFireAudioEntity.h"
@@ -321,6 +322,8 @@
 #include "game_sa\Entity\Vehicle\CTrailer.h"
 #include "game_sa\Entity\Vehicle\CTrain.h"
 #include "game_sa\Entity\Vehicle\CVehicle.h"
+#include "game_sa\Enums\eCheats.h"
+#include "game_sa\Enums\AnimationEnums.h"
 #include "game_sa\Enums\eAnimBlendCallbackType.h"
 #include "game_sa\Enums\eAudioEvents.h"
 #include "game_sa\Enums\eCamMode.h"
