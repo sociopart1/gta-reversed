@@ -14,6 +14,7 @@ float& CPedIntelligence::flt_8D2388 = *reinterpret_cast<float*>(0x8D2388);
 
 void CPedIntelligence::InjectHooks()
 {
+
     HookInstall(0x4893E0, &CPedIntelligence::GetPedEntities, 7);
     HookInstall(0x600B50, &CPedIntelligence::SetPedDecisionMakerType, 7);
     HookInstall(0x600BB0, &CPedIntelligence::SetPedDecisionMakerTypeInGroup, 7);
@@ -650,12 +651,9 @@ void CPedIntelligence::ClearTasks(bool bClearPrimaryTasks, bool bClearSecondaryT
 
 void CPedIntelligence::FlushImmediately(bool bSetPrimaryDefaultTask) {
 #ifdef USE_DEFAULT_FUNCTIONS
-    plugin::CallMethod<0x601640, CPedIntelligence*, bool>(this, bSetPrimaryDefaultTask);
+    return plugin::CallMethod<0x601640, CPedIntelligence*, bool>(this, bSetPrimaryDefaultTask);
 #else
-    bool bIsEntityVisible = false;
-
     CTask* pPrimaryTask = m_TaskMgr.m_aPrimaryTasks[TASK_PRIMARY_PRIMARY];
-    CTaskSimpleHoldEntity* pTaskSimpleHoldEntityCloned = nullptr;
     CTaskComplex* pTaskComplexBeInGroup = nullptr;
     if (pPrimaryTask && pPrimaryTask->GetId() == TASK_COMPLEX_BE_IN_GROUP)
     {
@@ -663,85 +661,58 @@ void CPedIntelligence::FlushImmediately(bool bSetPrimaryDefaultTask) {
     }
 
     CTaskSimpleHoldEntity* pTaskSimpleHoldEntity = nullptr;
-    CTaskManager* pTaskManager = &m_TaskMgr;
-    CTask* pSecondaryTask = pTaskManager->GetTaskSecondary(TASK_SECONDARY_PARTIAL_ANIM);
+    CTask* pSecondaryTask = m_TaskMgr.GetTaskSecondary(TASK_SECONDARY_PARTIAL_ANIM);
     if (pSecondaryTask && pSecondaryTask->GetId() == TASK_SIMPLE_HOLD_ENTITY)
     {
         pTaskSimpleHoldEntity = (CTaskSimpleHoldEntity*)pSecondaryTask;
     }
 
     int objectType = -1;
+    bool bIsEntityVisible = false;
     CObject* pObjectToHold = nullptr;
-    if (pTaskSimpleHoldEntity)
+    CTaskSimpleHoldEntity* pTaskSimpleHoldEntityCloned = nullptr;
+    if (pTaskSimpleHoldEntity && pTaskSimpleHoldEntity->GetId() == TASK_SIMPLE_HOLD_ENTITY)
     {
-        if (pTaskSimpleHoldEntity->GetId() == TASK_SIMPLE_HOLD_ENTITY)
+        pObjectToHold = (CObject*)pTaskSimpleHoldEntity->m_pEntityToHold;
+        if (pObjectToHold)
         {
-            pObjectToHold = (CObject*)pTaskSimpleHoldEntity->m_pEntityToHold;
-            if (pObjectToHold)
+            if (pObjectToHold->m_nType == ENTITY_TYPE_OBJECT)
             {
-                if (pObjectToHold->m_nType == ENTITY_TYPE_OBJECT)
-                {
-                    objectType = pObjectToHold->m_nObjectType;
-                    bIsEntityVisible = pObjectToHold->m_bIsVisible;
-                    pTaskSimpleHoldEntityCloned = (CTaskSimpleHoldEntity*)pTaskSimpleHoldEntity->Clone();
-                }
-                else
-                {
-                    pTaskSimpleHoldEntityCloned = (CTaskSimpleHoldEntity*)pTaskSimpleHoldEntity->Clone();
-                    bIsEntityVisible = bSetPrimaryDefaultTask;
-                }
+                objectType = pObjectToHold->m_nObjectType;
+                bIsEntityVisible = pObjectToHold->m_bIsVisible;
             }
+            pTaskSimpleHoldEntityCloned = (CTaskSimpleHoldEntity*)pTaskSimpleHoldEntity->Clone();
         }
     }
 
-    if (objectType == -1)
+
+    CTaskComplexFacial* pTaskComplexFacialCloned = nullptr;
+    CTask* pTaskComplexFacial = m_TaskMgr.GetTaskSecondary(TASK_SECONDARY_FACIAL_COMPLEX);
+    if (pTaskComplexFacial && pTaskComplexFacial->GetId() == TASK_COMPLEX_FACIAL)
     {
-        // seriously? 
-        bIsEntityVisible = bSetPrimaryDefaultTask;
+        pTaskComplexFacialCloned = static_cast<CTaskComplexFacial*>(pTaskComplexFacial->Clone());
     }
 
-    pSecondaryTask = pTaskManager->GetTaskSecondary(TASK_SECONDARY_FACIAL_COMPLEX);
-    CTaskComplex* pTaskComplexFacial = nullptr;
-    if (pSecondaryTask && pSecondaryTask->GetId() == TASK_COMPLEX_FACIAL)
-    {
-        pTaskComplexFacial = (CTaskComplex*)pSecondaryTask->Clone();
-    }
-
-    m_eventGroup.Flush(true);
+    m_eventGroup.Flush(1);
     m_eventHandler.FlushImmediately();
-    pTaskManager->FlushImmediately();
+    m_TaskMgr.FlushImmediately();
     CPedScriptedTaskRecord::Process();
-    if (pTaskComplexBeInGroup)
-    {
-        CPedGroup* pPedGroup = CPedGroups::GetPedsGroup(m_pPed);
-        if (!pPedGroup || m_pPed->IsPlayer())
-        {
-            pTaskComplexBeInGroup->DeletingDestructor(1);
-        }
-        else
-        {
-            pPedGroup->m_groupIntelligence.ComputeDefaultTasks(m_pPed);
-            pTaskManager->SetTask(pTaskComplexBeInGroup, TASK_PRIMARY_PRIMARY, 0);
-        }
-    }
     if (pTaskSimpleHoldEntityCloned)
     {
         if (objectType != -1)
         {
-            CObject* pObjectToHold = (CObject*)pTaskSimpleHoldEntityCloned->m_pEntityToHold;
             pObjectToHold->m_nObjectType = objectType;
-            if (bIsEntityVisible)
-            {
-                pObjectToHold->m_bIsVisible = 1;
-            }
+            pObjectToHold->m_bIsVisible = bIsEntityVisible;
         }
-        pTaskManager->SetTaskSecondary(pTaskSimpleHoldEntityCloned, TASK_SECONDARY_PARTIAL_ANIM);
+        m_TaskMgr.SetTaskSecondary((CTaskComplex*)pTaskSimpleHoldEntityCloned, TASK_SECONDARY_PARTIAL_ANIM);
         pTaskSimpleHoldEntityCloned->ProcessPed(m_pPed);
     }
-    if (pTaskComplexFacial)
+
+    if (pTaskComplexFacialCloned)
     {
-        pTaskManager->SetTaskSecondary(pTaskComplexFacial, TASK_SECONDARY_FACIAL_COMPLEX);
+        m_TaskMgr.SetTaskSecondary(pTaskComplexFacialCloned, TASK_SECONDARY_FACIAL_COMPLEX);
     }
+
     if (bSetPrimaryDefaultTask)
     {
         if (m_pPed->IsPlayer())
@@ -750,7 +721,7 @@ void CPedIntelligence::FlushImmediately(bool bSetPrimaryDefaultTask) {
             if (pTaskSimplePlayerOnFoot)
             {
                 pTaskSimplePlayerOnFoot->Constructor();
-                pTaskManager->SetTask(pTaskSimplePlayerOnFoot, TASK_PRIMARY_DEFAULT, 0);
+                m_TaskMgr.SetTask(pTaskSimplePlayerOnFoot, TASK_PRIMARY_DEFAULT, 0);
                 return;
             }
         }
@@ -759,19 +730,19 @@ void CPedIntelligence::FlushImmediately(bool bSetPrimaryDefaultTask) {
             if (m_pPed->m_nCreatedBy != 2)
             {
                 auto pTaskComplexWander = CTaskComplexWander::GetWanderTaskByPedType(m_pPed);
-                pTaskManager->SetTask(pTaskComplexWander, TASK_PRIMARY_DEFAULT, 0);
+                m_TaskMgr.SetTask(pTaskComplexWander, TASK_PRIMARY_DEFAULT, 0);
                 return;
             }
 
             auto pTaskSimpleStandStill = (CTaskSimpleStandStill*)CTask::operator new(32);
             if (pTaskSimpleStandStill)
             {
-                pTaskSimpleStandStill->Constructor(0, 1, 0, 8.0);
-                pTaskManager->SetTask(pTaskSimpleStandStill, TASK_PRIMARY_DEFAULT, 0);
+                pTaskSimpleStandStill->Constructor(0, true, false, 8.0);
+                m_TaskMgr.SetTask(pTaskSimpleStandStill, TASK_PRIMARY_DEFAULT, 0);
                 return;
             }
         }
-        pTaskManager->SetTask(0, TASK_PRIMARY_DEFAULT, 0);
+        m_TaskMgr.SetTask(0, TASK_PRIMARY_DEFAULT, 0);
         return;
     }
 #endif
@@ -1075,7 +1046,7 @@ bool CPedIntelligence::TestForStealthKill(CPed* pTarget, bool bFullTest) {
 
     CVector vecOutput;
     VectorSub(&vecOutput, pTargetPos, pPedPos);
-    if (CPedIntelligence::STEALTH_KILL_RANGE * CPedIntelligence::STEALTH_KILL_RANGE < vecOutput.Dot())
+    if (CPedIntelligence::STEALTH_KILL_RANGE * CPedIntelligence::STEALTH_KILL_RANGE < vecOutput.SquaredMagnitude())
     {
         return false;
     }
@@ -1290,7 +1261,7 @@ double CPedIntelligence::CanSeeEntityWithLights(CEntity* pEntity, int unUsed) {
     double fX = pEntityPos->x - pPedPos->x;
     double fY = pEntityPos->y - pPedPos->y;
     double fZ = pEntityPos->z - pPedPos->z;
-    float entitya = sqrt(fZ * fZ + fX * fX + fY * fY) - 0.69999999;
+    float entitya = sqrt(fZ * fZ + fX * fX + fY * fY) - 0.69999999f;
     double result = fLightingTotal * fLightingTotal - entitya / flt_8D2384 * LIGHT_AI_LEVEL_MAX * LIGHT_AI_LEVEL_MAX;
     if (result <= 0.0)
     {
