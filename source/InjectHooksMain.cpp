@@ -3,8 +3,10 @@
 
 #pragma comment(lib, "detours.lib")
 
-auto OLD_CPhysical_ApplyCollisionAlt = (bool(__thiscall*) (CPhysical* pThis, CPhysical * pEntity, CColPoint * pColPoint, float* pDamageIntensity, CVector * pVecMoveSpeed, CVector * pVecTurnSpeed))0x544D50;
-bool __fastcall CPhysical_ApplyCollisionAlt(CPhysical* pThis, void* padding, CPhysical* pEntity, CColPoint* pColPoint, float* pDamageIntensity, CVector* pVecMoveSpeed, CVector* pVecTurnSpeed);
+//void __thiscall CPhysical_ApplySpeed(CObject *this)
+
+auto OLD_CPhysical_ApplySpeed = (void(__thiscall*) (CPhysical* pThis))0x547B80;
+void __fastcall CPhysical_ApplySpeed(CPhysical* pThis, void* padding);
 
 void __cdecl HOOK_THEFUNCTION();
 
@@ -26,225 +28,322 @@ void InjectHooksMain(void)
     CTaskSimplePlayerOnFoot::InjectHooks();
     CTaskSimpleSwim::InjectHooks();
     */
-
-   // /*
+    ///*
      DetourRestoreAfterWith();
      DetourTransactionBegin();
      DetourUpdateThread(GetCurrentThread());
 
      std::printf("GOING TO HOOK FUNC NOW\n");
-     DetourAttach(&(PVOID&)OLD_CPhysical_ApplyCollisionAlt, CPhysical_ApplyCollisionAlt);
+     DetourAttach(&(PVOID&)OLD_CPhysical_ApplySpeed, CPhysical_ApplySpeed);
      DetourTransactionCommit();
      //*/
 }
 
-bool __fastcall CPhysical_ApplyCollisionAlt(CPhysical* pThis, void* padding, CPhysical* pEntity, CColPoint* pColPoint, float* pDamageIntensity, CVector* pVecMoveSpeed, CVector* pVecTurnSpeed)
+static void UpdateTimeStep(float fTimeStep)
 {
-    printf("CPhysical_ApplyCollisionAlt called!\n");
-
-    if (pThis->m_pAttachedTo)
+    if (fTimeStep > 0.00001f)
     {
-        if (pThis->m_pAttachedTo->m_nType > ENTITY_TYPE_BUILDING && pThis->m_pAttachedTo->m_nType < ENTITY_TYPE_DUMMY
-            && pThis->m_pAttachedTo->m_nType != ENTITY_TYPE_PED)
-        {
-            float fDamageIntensity = 0.0f;
-            pThis->m_pAttachedTo->ApplySoftCollision(pEntity, pColPoint, &fDamageIntensity);
-        }
-    }
-
-    if (pThis->physicalFlags.bDisableTurnForce)
-    {
-        float fSpeedDotProduct = DotProduct(&pThis->m_vecMoveSpeed, &pColPoint->m_vecNormal);
-        if (fSpeedDotProduct < 0.0f)
-        {
-            *pDamageIntensity = -(fSpeedDotProduct * pThis->m_fMass);
-            pThis->ApplyMoveForce(pColPoint->m_vecNormal * *pDamageIntensity);
-
-            float fCollisionImpact1 = *pDamageIntensity / pThis->m_fMass;
-            AudioEngine.ReportCollision(pThis, pEntity, pColPoint->m_nSurfaceTypeA, pColPoint->m_nSurfaceTypeB, pColPoint,
-                &pColPoint->m_vecNormal, fCollisionImpact1, 1.0f, false, false);
-            return true;
-        }
-        return false;
-    }
-
-    CVehicle* pVehicle = static_cast<CVehicle*>(pThis);
-    CVector vecMovingDirection = pColPoint->m_vecPoint - pThis->m_matrix->pos;
-    CVector vecSpeed;
-    pThis->GetSpeed(&vecSpeed, vecMovingDirection);
-
-    if (pThis->physicalFlags.b27 && pThis->m_nType == ENTITY_TYPE_VEHICLE && pColPoint->m_nSurfaceTypeA == SURFACE_CAR_MOVINGCOMPONENT)
-    {
-        CVector outSpeed;
-        pVehicle->AddMovingCollisionSpeed(&outSpeed, vecMovingDirection);
-        vecSpeed += outSpeed;
-    }
-
-    CVector vecMoveDirection = pColPoint->m_vecNormal;
-    float fSpeedDotProduct = DotProduct(&vecMoveDirection, &vecSpeed);
-    if (fSpeedDotProduct >= 0.0f)
-    {
-        return false;
-    }
-
-    CVector vecCentreOfMassMultiplied;
-    Multiply3x3(&vecCentreOfMassMultiplied, pThis->m_matrix, &pThis->m_vecCentreOfMass);
-    if (pThis->physicalFlags.bInfiniteMass)
-    {
-        vecCentreOfMassMultiplied = CVector(0.0f, 0.0f, 0.0f);
-    }
-
-    CVector vecDifference = vecMovingDirection - vecCentreOfMassMultiplied;
-    CVector vecCrossProduct;
-    vecCrossProduct.Cross(vecDifference, vecMoveDirection);
-    float fSquaredMagnitude = vecCrossProduct.SquaredMagnitude();
-    float fCollisionMass = 1.0f / (fSquaredMagnitude / pThis->m_fTurnMass + 1.0f / pThis->m_fMass);
-
-    unsigned short entityAltCol = ALT_ENITY_COL_DEFAULT;
-    float fMoveSpeedLimit = CTimer::ms_fTimeStep * 0.008f;
-    float fMoveSpeedLimitMultiplier = 1.3f;
-    if (pThis->m_nType == ENTITY_TYPE_OBJECT)
-    {
-        fMoveSpeedLimitMultiplier = 1.3f;
-        entityAltCol = ALT_ENITY_COL_OBJECT;
-        fMoveSpeedLimit = fMoveSpeedLimitMultiplier * fMoveSpeedLimit;
+        CTimer::ms_fTimeStep = fTimeStep;
     }
     else
     {
-        if (pThis->m_nType == ENTITY_TYPE_VEHICLE)
+        CTimer::ms_fTimeStep = 0.00001f;
+    }
+}
+
+
+void __fastcall CPhysical_ApplySpeed(CPhysical* pThis, void* padding)
+{
+    printf("CPhysical_ApplySpeed called!\n");
+
+    float fNewTimeStep1  = 0.0f;
+
+    float fSnookerTableX = 0.0f;
+    float fSnookerTableY = 0.0f;
+
+    CColPoint colPoint;
+    CObject* pObject = static_cast<CObject*>(pThis);
+    float fOldTimeStep = CTimer::ms_fTimeStep;
+    if (pThis->physicalFlags.bDisableZ)
+    {
+        pThis->m_matrix = pThis->m_matrix;
+        if (pThis->physicalFlags.bApplyGravity)
         {
-            if (!pThis->physicalFlags.bSubmergedInWater)
+            if (CTimer::ms_fTimeStep * pThis->m_vecMoveSpeed.z + pThis->m_matrix->pos.z < CWorld::SnookerTableMin.z)
             {
-                unsigned int vehicleClass = pVehicle->m_nVehicleClass;
-                if (vehicleClass != VEHICLE_BIKE || (pThis->m_nStatus != STATUS_ABANDONED) && pThis->m_nStatus != STATUS_WRECKED)
+                pThis->m_matrix->pos.z = CWorld::SnookerTableMin.z;
+                pThis->m_vecMoveSpeed = CVector(0.0f, 0.0f, 0.0f);
+                pThis->m_vecTurnSpeed = CVector(0.0f, 0.0f, 0.0f);
+            }
+            goto LABEL_57;
+        }
+
+        float fTimeStep = 1000.0f;
+        float fNewTimeStep0 = 1000.0f;
+        float fNewPositionX = CTimer::ms_fTimeStep * pThis->m_vecMoveSpeed.x + pThis->m_matrix->pos.x;
+        if (fNewPositionX <= CWorld::SnookerTableMax.x || pThis->m_vecMoveSpeed.x <= 0.0f)
+        {
+            if (fNewPositionX >= CWorld::SnookerTableMin.x || pThis->m_vecMoveSpeed.x >= 0.0f)
+            {
+            LABEL_12:
+                float fNewPositionY = CTimer::ms_fTimeStep * pThis->m_vecMoveSpeed.y + pThis->m_matrix->pos.y;
+                if (fNewPositionY <= CWorld::SnookerTableMax.y || pThis->m_vecMoveSpeed.y <= 0.0f)
                 {
-                    if (vehicleClass == VEHICLE_BOAT)
+                    if (fNewPositionY >= CWorld::SnookerTableMin.y || pThis->m_vecMoveSpeed.y >= 0.0f)
                     {
-                        fMoveSpeedLimitMultiplier = 1.5;
-                        entityAltCol = ALT_ENITY_COL_BOAT;
-                    }
-                    else
-                    {
-                        if (pThis->m_matrix->at.z >= -0.3f)
+                    LABEL_19:
+                        bool bXIsLessThanY = true;
+                        if (CWorld::SnookerTableMax.x - CWorld::SnookerTableMin.x < CWorld::SnookerTableMax.y
+                            - CWorld::SnookerTableMin.y)
                         {
-                            goto LABEL_31;
+                            bXIsLessThanY = false;
                         }
-                        else
+
+                        float fNormalX = 0.0f;
+                        float fNormalY = 0.0f;
+                        if (fTimeStep < fNewTimeStep0 && fTimeStep < 1000.0f)
                         {
-                            fMoveSpeedLimitMultiplier = 1.4f;
-                            entityAltCol = ALT_ENITY_COL_VEHICLE;
+                            fNormalX = -1.0f;
+                            //fMoveSpeedY = fabs(pThis->m_vecMoveSpeed.x);
+                            if (pThis->m_vecMoveSpeed.x <= 0.0f)
+                            {
+                                fNormalX = 1.0f;
+                            }
+
+                            UpdateTimeStep(fTimeStep);
+                            pThis->ApplyMoveSpeed();
+                            pThis->ApplyTurnSpeed();
+
+                            bool bUpdateMoveSpeedX = false;
+                            if (CWorld::SnookerTableMax.x - CWorld::SnookerTableMin.x < CWorld::SnookerTableMax.y
+                                - CWorld::SnookerTableMin.y)
+                            {
+                                // nothing
+                            }
+                            else 
+                            {
+                                float fSnookerTableY = (CWorld::SnookerTableMin.y + CWorld::SnookerTableMax.y) * 0.5f;
+                                if (fSnookerTableY - 0.06f >= pThis->m_matrix->pos.y || pThis->m_matrix->pos.y >= fSnookerTableY + 0.06f)
+                                {
+                                    bUpdateMoveSpeedX = true;
+                                }
+                            }
+
+                            if (CWorld::SnookerTableMax.y - 0.06 >= pThis->m_matrix->pos.y
+                                && CWorld::SnookerTableMin.y + 0.06 <= pThis->m_matrix->pos.y
+                                && bUpdateMoveSpeedX)
+                            {
+                                pThis->m_vecMoveSpeed.x = pThis->m_vecMoveSpeed.x * -1.0;
+                                fNewTimeStep1 = fOldTimeStep - fTimeStep;
+                            }
+                            else
+                            {
+                                float fTimeStepMoveSpeedX = fOldTimeStep * pThis->m_vecMoveSpeed.x;
+                                pThis->physicalFlags.bApplyGravity = true;
+                                if (fTimeStepMoveSpeedX <= 0.03)
+                                {
+                                    if (fTimeStepMoveSpeedX < -0.03)
+                                        pThis->m_vecMoveSpeed.x = -(0.03 / fOldTimeStep);
+                                    fNewTimeStep1 = fOldTimeStep - fTimeStep;
+                                }
+                                else
+                                {
+                                    pThis->m_vecMoveSpeed.x = 0.03 / fOldTimeStep;
+                                    fNewTimeStep1 = fOldTimeStep - fTimeStep;
+                                }
+                            }
+                            goto LABEL_51;
                         }
+                        if (fNewTimeStep0 < 1000.0f)
+                        {
+                            float fNormalY = -1.0f;
+                            float fMoveSpeedY = fabs(pThis->m_vecMoveSpeed.y);
+                            if (pThis->m_vecMoveSpeed.y <= 0.0f)
+                            {
+                                fNormalY = 1.0f;
+                            }
+
+                            UpdateTimeStep(fNewTimeStep0);
+                            pThis->ApplyMoveSpeed();
+                            pThis->ApplyTurnSpeed();
+                           
+                            float fNewMoveSpeedY = 0.0f;
+
+                            bool bUpdateMoveSpeedY = false;
+                            if (CWorld::SnookerTableMax.x - CWorld::SnookerTableMin.x < CWorld::SnookerTableMax.y
+                                - CWorld::SnookerTableMin.y)
+                            {
+                                // nothing
+                            }
+                            else
+                            {
+                                float fSnookerTableX = (CWorld::SnookerTableMin.x + CWorld::SnookerTableMax.x) * 0.5f;
+                                if (fSnookerTableX - 0.06 < pThis->m_matrix->pos.x && pThis->m_matrix->pos.x < fSnookerTableX + 0.06f)
+                                {
+                                    bUpdateMoveSpeedY = true;
+                                }
+                            }
+
+                            if (CWorld::SnookerTableMax.x - 0.06f < pThis->m_matrix->pos.x
+                                || CWorld::SnookerTableMin.x + 0.06f > pThis->m_matrix->pos.x
+                                || bUpdateMoveSpeedY)
+                            {
+                                float fTimeStepMoveSpeedY = fOldTimeStep * pThis->m_vecMoveSpeed.y;
+                                pThis->physicalFlags.bApplyGravity = true;
+                                if (fTimeStepMoveSpeedY <= 0.03f)
+                                {
+                                    if (fTimeStepMoveSpeedY >= -0.03f)
+                                    {
+                                    LABEL_50:
+                                        fNewTimeStep1 = fOldTimeStep - fNewTimeStep0;
+                                    LABEL_51:
+                                        //fNewTimeStep2 = fNewTimeStep1;
+                                        UpdateTimeStep(fNewTimeStep1);
+                                        if (fMoveSpeedY > 0.0f)
+                                        {
+                                            float fRadius = CModelInfo::ms_modelInfoPtrs[pThis->m_nModelIndex]->m_pColModel->m_boundSphere.m_fRadius;
+                                            CVector thePosition = CVector(fNormalX * fRadius, fNormalY * fRadius, 0.0f);
+                                            colPoint.m_vecPoint = pThis->GetPosition() - thePosition;
+                                            colPoint.m_vecNormal = CVector(fNormalX, fNormalY, 0.0f);
+                                            pThis->ApplyFriction(10.0f * fMoveSpeedY, &colPoint);
+
+                                            if (pThis->m_nType == ENTITY_TYPE_OBJECT)
+                                            {
+                                                AudioEngine.ReportMissionAudioEvent(1016, pObject);
+                                                pObject->m_nLastWeaponDamage = 4 * (pObject->m_nLastWeaponDamage == -1) + 50;
+                                            }
+                                        }
+                                        goto LABEL_57;
+                                    }
+                                    fNewMoveSpeedY = -(0.03 / fOldTimeStep);
+                                }
+                                else
+                                {
+                                    fNewMoveSpeedY = 0.03 / fOldTimeStep;
+                                }
+                            }
+                            else
+                            {
+                                fNewMoveSpeedY = pThis->m_vecMoveSpeed.y * -1.0;
+                            }
+                            pThis->m_vecMoveSpeed.y = fNewMoveSpeedY;
+                            goto LABEL_50;
+                        }
+                    LABEL_57:
+                        pThis->ApplyMoveSpeed();
+                        pThis->ApplyTurnSpeed();
+                        float fNewTimeStep = fOldTimeStep;
+                        if (fOldTimeStep <= 0.00001f)
+                        {
+                            fNewTimeStep = 0.00001f;
+                        }
+                        CTimer::ms_fTimeStep = fNewTimeStep;
+                        return;
                     }
+                    fSnookerTableY = CWorld::SnookerTableMin.y;
                 }
                 else
                 {
-                    fMoveSpeedLimitMultiplier = 1.7f;
-                    entityAltCol = ALT_ENITY_COL_BIKE_WRECKED;
+                    fSnookerTableY = CWorld::SnookerTableMax.y;
                 }
-                fMoveSpeedLimit = fMoveSpeedLimitMultiplier * fMoveSpeedLimit;
+                fNewTimeStep0 = (fSnookerTableY - pThis->m_matrix->pos.y) / pThis->m_vecMoveSpeed.y;
+                goto LABEL_19;
             }
-        }
-    }
-LABEL_31:
-    float fCollisionImpact2 = 1.0f;
-    if (entityAltCol == ALT_ENITY_COL_OBJECT)
-    {
-        if (!pThis->m_bHasContacted
-            && fabs(pThis->m_vecMoveSpeed.x) < fMoveSpeedLimit
-            && fabs(pThis->m_vecMoveSpeed.y) < fMoveSpeedLimit
-            && fMoveSpeedLimit + fMoveSpeedLimit > fabs(pThis->m_vecMoveSpeed.z))
-        {
-            fCollisionImpact2 = 0.0f;
-            *pDamageIntensity = -0.98f * fCollisionMass * fSpeedDotProduct;
-        }
-        goto LABEL_37;
-    }
-    if (entityAltCol != ALT_ENITY_COL_BIKE_WRECKED)
-    {
-        if (entityAltCol == ALT_ENITY_COL_VEHICLE)
-        {
-            if (fabs(pThis->m_vecMoveSpeed.x) < fMoveSpeedLimit
-                && fabs(pThis->m_vecMoveSpeed.y) < fMoveSpeedLimit
-                && fMoveSpeedLimit + fMoveSpeedLimit > fabs(pThis->m_vecMoveSpeed.z))
-            {
-                pDamageIntensity = pDamageIntensity;
-                fCollisionImpact2 = 0.0f;
-                *pDamageIntensity = -0.95f * fCollisionMass * fSpeedDotProduct;
-                goto LABEL_59;
-            }
-        }
-        else if (entityAltCol == ALT_ENITY_COL_BOAT
-            && fabs(pThis->m_vecMoveSpeed.x) < fMoveSpeedLimit
-            && fabs(pThis->m_vecMoveSpeed.y) < fMoveSpeedLimit
-            && fMoveSpeedLimit + fMoveSpeedLimit > fabs(pThis->m_vecMoveSpeed.z))
-        {
-            fCollisionImpact2 = 0.0f;
-            *pDamageIntensity = -0.95f * fCollisionMass * fSpeedDotProduct;
-            goto LABEL_59;
-        }
-    LABEL_37:
-        float fElasticity = pThis->m_fElasticity + pThis->m_fElasticity;
-        if (pThis->m_nType != ENTITY_TYPE_VEHICLE || pVehicle->m_nVehicleClass != VEHICLE_BOAT
-            || pColPoint->m_nSurfaceTypeB != SURFACE_WOOD_SOLID && vecMoveDirection.z >= 0.5f)
-        {
-            fElasticity = pThis->m_fElasticity;
-        }
-
-        *pDamageIntensity = -((fElasticity + 1.0f) * fCollisionMass * fSpeedDotProduct);
-        goto LABEL_59;
-    }
-    else
-    {
-        if (fabs(pThis->m_vecMoveSpeed.x) >= fMoveSpeedLimit
-            || fabs(pThis->m_vecMoveSpeed.y) >= fMoveSpeedLimit
-            || fMoveSpeedLimit + fMoveSpeedLimit <= fabs(pThis->m_vecMoveSpeed.z))
-        {
-            goto LABEL_37;
-        }
-        fCollisionImpact2 = 0.0f;
-        *pDamageIntensity = -0.95f * fCollisionMass * fSpeedDotProduct;
-    }
-LABEL_59:
-    CVector vecMoveSpeed = vecMoveDirection * *pDamageIntensity;
-
-    if (pThis->physicalFlags.bDisableZ || pThis->physicalFlags.bInfiniteMass || pThis->physicalFlags.bDisableMoveForce)
-    {
-        pThis->ApplyForce(vecMoveSpeed, vecMovingDirection, true);
-    }
-    else
-    {
-        CVector vecSpeed = vecMoveSpeed / pThis->m_fMass;
-        if (pThis->m_nType == ENTITY_TYPE_VEHICLE)
-        {
-            if (!pThis->m_bHasHitWall|| pThis->m_vecMoveSpeed.SquaredMagnitude() <= 0.1f
-                && (pEntity->m_nType == ENTITY_TYPE_BUILDING || pEntity->physicalFlags.bDisableCollisionForce))
-            {
-                *pVecMoveSpeed += vecSpeed * 1.2f;
-            }
-            else
-            {
-                *pVecMoveSpeed += vecSpeed;
-            }
-
-            vecMoveSpeed *= 0.8f;
+            fSnookerTableX = CWorld::SnookerTableMin.x;
         }
         else
         {
-            *pVecMoveSpeed += vecSpeed;
+            fSnookerTableX = CWorld::SnookerTableMax.x;
         }
-
-        Multiply3x3(&vecCentreOfMassMultiplied, pThis->m_matrix, &pThis->m_vecCentreOfMass);
-        float fTurnMass = pThis->m_fTurnMass;
-        CVector vecDifference = vecMovingDirection - vecCentreOfMassMultiplied;
-        CVector vecCrossProduct;
-        vecCrossProduct.Cross(vecDifference, vecMoveSpeed);
-        *pVecTurnSpeed += vecCrossProduct / fTurnMass;
+        fTimeStep = (fSnookerTableX - pThis->m_matrix->pos.x) / pThis->m_vecMoveSpeed.x;
+        goto LABEL_12;
     }
 
-    float fCollisionImpact1 = *pDamageIntensity / fCollisionMass;
-    AudioEngine.ReportCollision(pThis, pEntity, pColPoint->m_nSurfaceTypeA, pColPoint->m_nSurfaceTypeB, pColPoint,
-        &pColPoint->m_vecNormal, fCollisionImpact1, fCollisionImpact2, false, false);
-    return true;
+    if (!pThis->physicalFlags.bDisableMoveForce || pThis->m_nType != ENTITY_TYPE_OBJECT || pObject->m_fDoorStartAngle <= -1000.0f)
+    {
+        goto LABEL_57;
+    }
+
+    float fDoorAngle = pObject->m_fDoorStartAngle;
+    float fHeading = pThis->GetHeading();
+    if (fDoorAngle + M_PI >= fHeading)
+    {
+        if (fDoorAngle - M_PI <= fHeading)
+        {
+            goto LABEL_72;
+        }
+        fHeading += (M_PI + M_PI);
+    }
+    else
+    {
+        fHeading -= (M_PI + M_PI);
+    }
+
+LABEL_72:
+    float fNewTimeStep = -1000.0f;
+    float fTheDoorAngle = 1.885f + fDoorAngle;
+    if (pThis->m_vecTurnSpeed.z <= 0.0f
+        || CTimer::ms_fTimeStep * pThis->m_vecTurnSpeed.z + fHeading <= fTheDoorAngle)
+    {
+        if (pThis->m_vecTurnSpeed.z < 0.0f)
+        {
+            fTheDoorAngle = fDoorAngle - 1.885f;
+            if (CTimer::ms_fTimeStep * pThis->m_vecTurnSpeed.z + fHeading < fTheDoorAngle)
+            {
+                fNewTimeStep = (fTheDoorAngle - fHeading) / pThis->m_vecTurnSpeed.z;
+            }
+        }
+    }
+    else
+    {
+        fNewTimeStep = (fTheDoorAngle - fHeading) / pThis->m_vecTurnSpeed.z;
+    }
+
+    if (-CTimer::ms_fTimeStep <= fNewTimeStep)
+    {
+        UpdateTimeStep(fNewTimeStep);
+        pThis->ApplyTurnSpeed();
+        pThis->m_vecTurnSpeed.z = -0.2f * pThis->m_vecTurnSpeed.z;
+        UpdateTimeStep(fOldTimeStep - fNewTimeStep);
+        pThis->physicalFlags.b31 = true;
+    }
+
+    pThis->ApplyMoveSpeed();
+    pThis->ApplyTurnSpeed();
+    UpdateTimeStep(fOldTimeStep);
+
+    if (pObject->objectFlags.bIsDoorMoving)
+    {
+        float fNewHeading = pThis->GetHeading();
+        if (fNewHeading + M_PI >= fDoorAngle)
+        {
+            if (fNewHeading - M_PI > fDoorAngle)
+            {
+                fNewHeading = fNewHeading - (M_PI + M_PI);
+            }
+        }
+        else
+        {
+            fNewHeading = fNewHeading + (M_PI + M_PI);
+        }
+
+        float fTheHeading = fHeading - fDoorAngle;
+        float fTheNewHeading = fNewHeading - fDoorAngle;
+        if (fabs(fTheHeading) < 0.001f)
+        {
+            fTheHeading = 0.0f;
+        }
+
+        if (fabs(fTheNewHeading) < 0.001f)
+        {
+            fTheNewHeading = 0.0f;
+        }
+
+        if (fTheHeading * fTheNewHeading < 0.0f)
+        {
+            pThis->m_vecTurnSpeed.z = 0.0f;
+        }
+    }
 }
 
 /*

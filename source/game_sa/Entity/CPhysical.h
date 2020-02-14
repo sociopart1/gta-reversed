@@ -163,6 +163,7 @@ public:
     virtual int ProcessEntityCollision(CEntity *entity, CColPoint *point);
 
     // reversed virtual functions
+    void ProcessControl_Reversed();
     void ProcessShift_Reversed();
 
     // functions
@@ -198,7 +199,7 @@ public:
     float GetLightingTotal();
     bool CanPhysicalBeDamaged(eWeaponType weapon, unsigned char* arg1);
     void ApplyAirResistance();
-    bool ApplyCollisionAlt(CEntity* entity, CColPoint& colPoint, float& fDamageIntensity, CVector& vecMoveSpeed, CVector& vecTurnSpeed);
+    bool ApplyCollisionAlt(CPhysical* pEntity, CColPoint* pColPoint, float* pDamageIntensity, CVector* pVecMoveSpeed, CVector* pVecTurnSpeed);
     bool ApplyFriction(float fFriction, CColPoint* pColPoint);
     bool ApplyFriction(CPhysical* pEntity, float fFriction, CColPoint* pColPoint);
     bool ProcessShiftSectorList(int sectorX, int sectorY);

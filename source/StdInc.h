@@ -14,6 +14,10 @@
 #include <iostream>
 #include <cassert>
 
+#define _USE_MATH_DEFINES
+#include <cmath>
+
+#include "game_sa\CCullZones.h"
 #include "game_sa\CGlass.h"
 #include "game_sa\CBuoyancy.h"
 #include "game_sa\CEventPedToFlee.h"
