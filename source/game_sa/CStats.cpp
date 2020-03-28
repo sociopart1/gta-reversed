@@ -35,14 +35,36 @@ unsigned int &CStats::m_MaxHealthCounter = *(unsigned int*)0xB7950C;
 unsigned int &CStats::m_AddToHealthCounter = *(unsigned int*)0xB79510;
 unsigned int &CStats::m_LastWeaponTypeFired = *(unsigned int*)0xB79514;
 
-// Converted from cdecl char* CStats::GetStatID(ushort stat) 0x558DE0
-char* CStats::GetStatID(unsigned short stat) {
-    return plugin::CallAndReturn<char*, 0x558DE0, unsigned short>(stat);
+void CStats::InjectHooks()
+{
+    HookInstall(0x558DE0, &CStats::GetStatID, 7);
+    HookInstall(0x558E70, &CStats::GetTimesMissionAttempted, 7);
+    HookInstall(0x558E80, &CStats::RegisterMissionAttempted, 7);
+    HookInstall(0x558EA0, &CStats::RegisterMissionPassed, 7);
 }
 
-// Converted from cdecl bool CStats::GetStatType(ushort stat) 0x558E30
-bool CStats::GetStatType(unsigned short stat) {
+// Unused
+char* CStats::GetStatID(unsigned short stat) 
+{
+#ifdef USE_DEFAULT_FUNCTIONS
+    return plugin::CallAndReturn<char*, 0x558DE0, unsigned short>(stat);
+#else
+    if (stat >= 0x52u)
+        sprintf(gString, "stat_i_%d", stat);
+    else
+        sprintf(gString, "stat_f_%d", stat);
+    return gString;
+#endif 
+}
+
+// Unused
+bool CStats::GetStatType(unsigned short stat) 
+{
+//#ifdef USE_DEFAULT_FUNCTIONS
     return plugin::CallAndReturn<bool, 0x558E30, unsigned short>(stat);
+//#else
+//    return (unsigned __int16)this < 0x52u;
+//#endif
 }
 
 // Converted from cdecl float CStats::GetStatValue(ushort stat) 0x558E40
@@ -50,19 +72,36 @@ float CStats::GetStatValue(unsigned short stat) {
     return plugin::CallAndReturn<float, 0x558E40, unsigned short>(stat);
 }
 
-// Converted from cdecl char CStats::GetTimesMissionAttempted(uchar missionId) 0x558E70
-char CStats::GetTimesMissionAttempted(unsigned char missionId) {
+// Unused
+char CStats::GetTimesMissionAttempted(unsigned char missionId) 
+{
+#ifdef USE_DEFAULT_FUNCTIONS
     return plugin::CallAndReturn<char, 0x558E70, unsigned char>(missionId);
+#else
+    return CStats::TimesMissionAttempted[missionId];
+#endif
 }
 
-// Converted from cdecl void CStats::RegisterMissionAttempted(uchar missionId) 0x558E80
-void CStats::RegisterMissionAttempted(unsigned char missionId) {
+// Unused
+void CStats::RegisterMissionAttempted(unsigned char missionId) 
+{
+#ifdef USE_DEFAULT_FUNCTIONS
     plugin::Call<0x558E80, unsigned char>(missionId);
+#else
+    int timesMissionAttempted = CStats::TimesMissionAttempted[missionId];
+    if (timesMissionAttempted != -1)
+        CStats::TimesMissionAttempted[missionId] = timesMissionAttempted + 1;
+#endif
 }
 
-// Converted from cdecl void CStats::RegisterMissionPassed(uchar missionId) 0x558EA0
-void CStats::RegisterMissionPassed(unsigned char missionId) {
+// Unused
+void CStats::RegisterMissionPassed(unsigned char missionId) 
+{
+#ifdef USE_DEFAULT_FUNCTIONS
     plugin::Call<0x558EA0, unsigned char>(missionId);
+#else
+    CStats::TimesMissionAttempted[missionId] = -1;
+#endif
 }
 
 // Converted from cdecl bool CStats::PopulateFavoriteRadioStationList(void) 0x558EC0

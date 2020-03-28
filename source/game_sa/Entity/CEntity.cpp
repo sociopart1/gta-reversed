@@ -16,12 +16,12 @@ void CEntity::Add(CRect &rect)
 
 void CEntity::Add()
 {
-    ((void(__thiscall *)(CEntity *))(*(void ***)this)[2])(this);
+    ((void(__thiscall *)(CEntity *))0x533020)(this);
 }
 
 void CEntity::Remove()
 {
-    ((void(__thiscall *)(CEntity *))(*(void ***)this)[3])(this);
+    ((void(__thiscall *)(CEntity *))(0x534AE0))(this);
 }
 
 void CEntity::SetIsStatic(bool isStatic)
@@ -69,9 +69,9 @@ void CEntity::ProcessShift()
     ((void(__thiscall *)(CEntity *))(*(void ***)this)[12])(this);
 }
 
-bool CEntity::TestCollision()
+bool CEntity::TestCollision(bool bApplySpeed)
 {
-    return ((bool(__thiscall *)(CEntity *))(*(void ***)this)[13])(this);
+    return ((bool(__thiscall *)(CEntity *, bool))(*(void ***)this)[13])(this, bApplySpeed);
 }
 
 void CEntity::Teleport(CVector destination, bool resetRotation)
@@ -84,9 +84,9 @@ void CEntity::SpecialEntityPreCollisionStuff(CEntity *colEntity, bool bIgnoreStu
     ((void(__thiscall *)(CEntity *, CEntity *, bool, bool *, bool *, bool *, bool *))(*(void ***)this)[15])(this, colEntity, bIgnoreStuckCheck, bCollisionDisabled, bCollidedEntityCollisionIgnored, bCollidedEntityUnableToMove, bThisOrCollidedEntityStuck);
 }
 
-void CEntity::SpecialEntityCalcCollisionSteps(unsigned char *unk1, unsigned char *unk2)
+unsigned char CEntity::SpecialEntityCalcCollisionSteps(bool * bProcessCollisionBeforeSettingTimeStep, bool* unk2)
 {
-    ((void(__thiscall *)(CEntity *, unsigned char *, unsigned char *))(*(void ***)this)[16])(this, unk1, unk2);
+    return ((unsigned char(__thiscall *)(CEntity *, bool*, bool*))(*(void ***)this)[16])(this, bProcessCollisionBeforeSettingTimeStep, unk2);
 }
 
 void CEntity::PreRender()

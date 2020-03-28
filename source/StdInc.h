@@ -14,9 +14,6 @@
 #include <iostream>
 #include <cassert>
 
-#define _USE_MATH_DEFINES
-#include <cmath>
-
 #include "game_sa\CCullZones.h"
 #include "game_sa\CGlass.h"
 #include "game_sa\CBuoyancy.h"
@@ -275,6 +272,7 @@
 #include "game_sa\Collision\CColTriangle.h"
 #include "game_sa\Collision\CColTrianglePlane.h"
 #include "game_sa\Collision\CSphere.h"
+#include "game_sa\Core\CEntryInfoNode.h"
 #include "game_sa\Core\CKeyGen.h"
 #include "game_sa\Core\CLink.h"
 #include "game_sa\Core\CLinkList.h"
@@ -389,6 +387,7 @@
 #include "game_sa\Models\CTimeModelInfo.h"
 #include "game_sa\Models\CVehicleModelInfo.h"
 #include "game_sa\Models\CWeaponModelInfo.h"
+#include "game_sa\Models\CDamagableModelInfo.h"
 #include "game_sa\Plugins\JPegCompress.h"
 #include "game_sa\Plugins\NodeName.h"
 #include "game_sa\Plugins\PipelinePlugin.h"

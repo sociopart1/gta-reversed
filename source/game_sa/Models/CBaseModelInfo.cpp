@@ -6,14 +6,19 @@ Do not delete this comment block. Respect others' work!
 */
 #include "StdInc.h"
 
-CBaseModelInfo *CBaseModelInfo::AsAtomicModelInfoPtr()
+CBaseModelInfo* CBaseModelInfo::DeletingDestructor(uint8_t deletingFlags)
 {
-    return ((CBaseModelInfo *(__thiscall *)(CBaseModelInfo *))plugin::GetVMT(this, 1))(this);
+    return((CBaseModelInfo * (__thiscall*)(CBaseModelInfo*, uint8_t))plugin::GetVMT(this, 0))(this, deletingFlags);
 }
 
-CBaseModelInfo *CBaseModelInfo::AsDamageAtomicModelInfoPtr()
+CAtomicModelInfo* CBaseModelInfo::AsAtomicModelInfoPtr()
 {
-    return ((CBaseModelInfo *(__thiscall *)(CBaseModelInfo *))plugin::GetVMT(this, 2))(this);
+    return ((CAtomicModelInfo * (__thiscall *)(CBaseModelInfo *))plugin::GetVMT(this, 1))(this);
+}
+
+CDamagableModelInfo* CBaseModelInfo::AsDamageAtomicModelInfoPtr()
+{
+    return ((CDamagableModelInfo *(__thiscall *)(CBaseModelInfo *))plugin::GetVMT(this, 2))(this);
 }
 
 CBaseModelInfo *CBaseModelInfo::AsLodAtomicModelInfoPtr()

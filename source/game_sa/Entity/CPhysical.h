@@ -13,6 +13,7 @@
 #include "CRealTimeShadow.h"
 #include "CRepeatSector.h"
 #include "eWeaponType.h"
+#include "CEntryInfoNode.h"
 
 enum ePhysicalFlags
 {
@@ -123,8 +124,8 @@ public:
     float            m_fElasticity;
     float            m_fBuoyancyConstant;
     CVector          m_vecCentreOfMass;
-    void            *m_pCollisionList;
-    void            *m_pMovingList;
+    CEntryInfoNode*  m_pCollisionList;
+    CPtrNodeDoubleLink* m_pMovingList;
     unsigned char    m_bFakePhysics;
     unsigned char    m_nNumEntitiesCollided;
     unsigned char    m_nContactSurface;
@@ -139,41 +140,55 @@ public:
     short field_FA;
     class CPhysical *m_pAttachedTo;
     CVector          m_vecAttachOffset;
-    CVector          m_vecAttachedEntityPosn;
+    CVector          m_vecAttachedEntityRotation;
     CQuaternion      m_qAttachedEntityRotation;
     CEntity         *m_pEntityIgnoredCollision;
     float            m_fContactSurfaceBrightness;
     float            m_fDynamicLighting;
     CRealTimeShadow *m_pShadowData;
     
+    static float& DAMPING_LIMIT_IN_FRAME;
+    static float& DAMPING_LIMIT_OF_SPRING_FORCE;
     static float& PHYSICAL_SHIFT_SPEED_DAMP;
     static float& SOFTCOL_SPEED_MULT;
     static float& SOFTCOL_SPEED_MULT2;
     static float& SOFTCOL_DEPTH_MIN;
     static float& SOFTCOL_DEPTH_MULT;
     static float& SOFTCOL_CARLINE_SPEED_MULT;
+    static float& TEST_ADD_AMBIENT_LIGHT_FRAC;
+    static float& HIGHSPEED_ELASTICITY_MULT_COPCAR;
     static CVector& fxDirection;
 
     static void InjectHooks();
 
     // originally virtual functions
+    void Add() override;
+    void Remove() override;
     CRect* GetBoundRect(CRect* pRect) override;
     void ProcessControl() override;
+    void ProcessCollision() override;
     void ProcessShift() override;
-    virtual int ProcessEntityCollision(CEntity *entity, CColPoint *point);
+    bool TestCollision(bool bApplySpeed) override;
+    virtual int ProcessEntityCollision(CPhysical* entity, CColPoint* colpoint);
 
     // reversed virtual functions
+    void Add_Reversed();
+    void Remove_Reversed();
+    CRect* GetBoundRect_Reversed(CRect* pRect);
     void ProcessControl_Reversed();
+    void ProcessCollision_Reversed();
     void ProcessShift_Reversed();
+    bool TestCollision_Reversed(bool bApplySpeed);
+    int ProcessEntityCollision_Reversed(CPhysical* entity, CColPoint* colpoint);
 
     // functions
     void RemoveAndAdd();
     void AddToMovingList();
     void RemoveFromMovingList();
-    void SetDamagedPieceRecord(float damageIntensity, CEntity* damagingEntity, CColPoint* colPoint, float distanceMult);
+    void SetDamagedPieceRecord(float fDamageIntensity, CEntity* entity, CColPoint* colPoint, float fDistanceMult);
     void ApplyMoveForce(float x, float y, float z);
     void ApplyMoveForce(CVector force);
-    void ApplyTurnForce(CVector dir, CVector velocity);
+    void ApplyTurnForce(CVector force, CVector direction);
     void ApplyForce(CVector vecMoveSpeed, CVector vecDirection, bool bUpdateTurnSpeed);
     CVector* GetSpeed(CVector* outSpeed, CVector direction);
     void ApplyMoveSpeed();
@@ -188,22 +203,22 @@ public:
     bool GetHasCollidedWithAnyObject();
     bool ApplyCollision(CEntity* pEntity, CColPoint* pColPoint, float* pDamageIntensity);
     bool ApplySoftCollision(CEntity* pEntity, CColPoint* pColPoint, float* pDamageIntensity);
-    bool ApplySpringCollision(float arg0, CVector& arg1, CVector& arg2, float arg3, float arg4, float& arg5);
-    bool ApplySpringCollisionAlt(float arg0, CVector& arg1, CVector& arg2, float arg3, float arg4, CVector& arg5, float& arg6);
-    bool ApplySpringDampening(float arg0, float arg1, CVector& arg2, CVector& arg3, CVector& arg4);
+    bool ApplySpringCollision(float fSuspensionForceLevel, CVector* direction, CVector* collisionPoint, float fSpringLength, float fSuspensionBias, float* fSpringForceDampingLimit);
+    bool ApplySpringCollisionAlt(float fSuspensionForceLevel, CVector* direction, CVector* collisionPoint, float fSpringLength, float fSuspensionBias, CVector* collisionPointDirection, float* fSpringForceDampingLimit);
+    bool ApplySpringDampening(float fDampingForce, float fSpringForceDampingLimit, CVector* direction, CVector* collisionPoint, CVector* collisionPos);
     bool ApplySpringDampeningOld(float arg0, float arg1, CVector& arg2, CVector& arg3, CVector& arg4);
     void RemoveRefsToEntity(CEntity* entity);
-    void DettachEntityFromEntity(float x, float y, float z, bool useCollision);
+    void DettachEntityFromEntity(float x, float y, float z, bool bApplyTurnForce);
     void DettachAutoAttachedEntity();
-    float GetLightingFromCol(bool flag);
+    float GetLightingFromCol(bool bInteriorLighting);
     float GetLightingTotal();
-    bool CanPhysicalBeDamaged(eWeaponType weapon, unsigned char* arg1);
+    bool CanPhysicalBeDamaged(eWeaponType weapon, bool* bDamagedDueToFireOrExplosionOrBullet);
     void ApplyAirResistance();
     bool ApplyCollisionAlt(CPhysical* pEntity, CColPoint* pColPoint, float* pDamageIntensity, CVector* pVecMoveSpeed, CVector* pVecTurnSpeed);
     bool ApplyFriction(float fFriction, CColPoint* pColPoint);
     bool ApplyFriction(CPhysical* pEntity, float fFriction, CColPoint* pColPoint);
     bool ProcessShiftSectorList(int sectorX, int sectorY);
-    static void PlacePhysicalRelativeToOtherPhysical(CPhysical* physical1, CPhysical* physical2, CVector offset);
+    static void PlacePhysicalRelativeToOtherPhysical(CPhysical* relativeToPhysical, CPhysical* physicalToPlace, CVector offset);
     float ApplyScriptCollision(CVector arg0, float arg1, float arg2, CVector* arg3);
     void PositionAttachedEntity();
     void ApplySpeed();
@@ -213,8 +228,8 @@ public:
     bool ApplySoftCollision(CPhysical* pEntity, CColPoint* pColPoint, float* pThisDamageIntensity, float* pEntityDamageIntensity);
     bool ProcessCollisionSectorList(int sectorX, int sectorY);
     bool ProcessCollisionSectorList_SimpleCar(CRepeatSector* pRepeatSector);
-    void AttachEntityToEntity(CEntity* entity, CVector offset, CVector rotation);
-    void AttachEntityToEntity(CEntity* entity, CVector* , RtQuat* rotation);
+    void AttachEntityToEntity(CPhysical* entity, CVector offset, CVector rotation);
+    void AttachEntityToEntity(CPhysical* pEntityAttachTo, CVector* vecAttachOffset, CQuaternion* attachRotation);
     bool CheckCollision();
     bool CheckCollision_SimpleCar();
 };

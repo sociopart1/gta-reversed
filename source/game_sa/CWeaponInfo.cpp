@@ -9,6 +9,10 @@
 
 CWeaponInfo* aWeaponInfo = (CWeaponInfo*)0xC8AAB8;
 
+void CWeaponInfo::InjectHooks() {
+    HookInstall(0x00743CD0, &CWeaponInfo::GetSkillStatIndex, 7);
+}
+
 CWeaponInfo::CWeaponInfo()
 {
     ((void(__thiscall*)(CWeaponInfo*))0x743C30)(this);
@@ -29,6 +33,22 @@ char** CWeaponInfo::ms_aWeaponNames = (char**)0x8D6150;
 void CWeaponInfo::LoadWeaponData()
 {
     ((void(__cdecl*)())0x5BE670)();
+}
+
+int CWeaponInfo::GetSkillStatIndex(int weaponType) {
+#ifdef USE_DEFAULT_FUNCTIONS
+    return ((eWeaponType(__cdecl*)(int))0x00743CD0)(weaponType);
+#else
+  if ( weaponType < WEAPON_PISTOL || weaponType > WEAPON_TEC9 )
+    return -1;
+  if ( weaponType <= WEAPON_M4 )
+    return weaponType - WEAPON_PISTOL + STAT_PISTOL_SKILL;
+  if ( weaponType == WEAPON_TEC9 )
+    return STAT_MACHINE_PISTOL_SKILL;
+  if ( weaponType == WEAPON_COUNTRYRIFLE ) 
+    return STAT_GAMBLING;
+  return weaponType + STAT_PISTOL_SKILL;
+#endif
 }
 
 CWeaponInfo* CWeaponInfo::GetWeaponInfo(eWeaponType weaponType, unsigned char skill)

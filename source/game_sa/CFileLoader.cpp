@@ -7,8 +7,54 @@ Do not delete this comment block. Respect others' work!
 
 #include "StdInc.h"
 
-bool CFileLoader::LoadAtomicFile(RwStream *stream, unsigned int modelIndex) {
-    return plugin::CallAndReturnDynGlobal<bool, RwStream *, unsigned int>(0x5371F0, stream, modelIndex);
+char(&CFileLoader::ms_line)[512] = *reinterpret_cast<char(*)[512]>(0xB71848);
+unsigned int& gAtomicModelId = *reinterpret_cast<unsigned int*>(0xB71840);
+
+void CFileLoader::InjectHooks()
+{
+    HookInstall(0x5371F0, (bool(*)(RwStream*, unsigned int))&CFileLoader::LoadAtomicFile, 7);
+    HookInstall(0x537150, &CFileLoader::SetRelatedModelInfoCB, 7);
+}
+
+bool CFileLoader::LoadAtomicFile(RwStream *stream, unsigned int modelId) {
+#ifdef USE_DEFAULT_FUNCTIONS
+    return plugin::CallAndReturnDynGlobal<bool, RwStream *, unsigned int>(0x5371F0, stream, modelId);
+#else
+    auto pAtomicModelInfo = CModelInfo::ms_modelInfoPtrs[modelId]->AsAtomicModelInfoPtr();
+    bool bUseCommonVehicleTexDictionary = false; 
+    if (pAtomicModelInfo && pAtomicModelInfo->bWetRoadReflection)
+    {
+        bUseCommonVehicleTexDictionary = true;
+        CVehicleModelInfo::UseCommonVehicleTexDicationary();
+    }
+
+    if (RwStreamFindChunk(stream, rwID_CLUMP, nullptr, nullptr))
+    {
+        RpClump* pReadClump = RpClumpStreamRead(stream);
+        if (!pReadClump)
+        {
+            if (bUseCommonVehicleTexDictionary)
+            {
+                CVehicleModelInfo::StopUsingCommonVehicleTexDicationary();
+            }
+            return false;
+        }
+        gAtomicModelId = modelId;
+        RpClumpForAllAtomics(pReadClump, (RpAtomicCallBack)CFileLoader::SetRelatedModelInfoCB, pReadClump);
+        RpClumpDestroy(pReadClump);
+    }
+
+    if (!pAtomicModelInfo->m_pRwObject)
+    {
+        return false;
+    }
+
+    if (bUseCommonVehicleTexDictionary)
+    {
+        CVehicleModelInfo::StopUsingCommonVehicleTexDicationary();
+    }
+    return true;
+#endif
 }
 
 void CFileLoader::LoadAtomicFile(char const *filename) {
@@ -41,4 +87,38 @@ bool CFileLoader::LoadCollisionFile(unsigned char *data, unsigned int dataSize, 
 
 bool CFileLoader::FinishLoadClumpFile(RwStream *stream, unsigned int modelIndex) {
     return plugin::CallAndReturnDynGlobal<bool, RwStream *, unsigned int>(0x537450, stream, modelIndex);
+}
+
+void GetNameAndDamage(char const* nodeName, char* outName, bool& outDamage) {
+    plugin::CallDynGlobal<char const*, char*, bool&>(0x5370A0, nodeName, outName, outDamage);
+}
+
+
+RpAtomic* CFileLoader::SetRelatedModelInfoCB(RpAtomic* atomic, RpClump* clump)
+{
+#ifdef USE_DEFAULT_FUNCTIONS
+    return plugin::CallAndReturn<RpAtomic*, 0x537150, RpAtomic*, RpClump*>(atomic, clump);
+#else
+    char name[24];
+    auto pAtomicModelInfo = CModelInfo::ms_modelInfoPtrs[gAtomicModelId]->AsAtomicModelInfoPtr();
+    char* frameNodeName = GetFrameNodeName(GetFrameFromAtomic(atomic));
+
+    bool bDamage = false;
+    GetNameAndDamage(frameNodeName, (char*)&name, bDamage);
+    CVisibilityPlugins::SetAtomicRenderCallback(atomic, 0);
+    if (bDamage)
+    {
+        auto pDamagableModelInfo = pAtomicModelInfo->AsDamageAtomicModelInfoPtr();
+        pDamagableModelInfo->SetDamagedAtomic(atomic);
+    }
+    else
+    {
+        pAtomicModelInfo->SetAtomic(atomic);
+    }
+    RpClumpRemoveAtomic(clump, atomic);
+    RwFrame* newFrame = RwFrameCreate();
+    RpAtomicSetFrame(atomic, newFrame);
+    CVisibilityPlugins::SetAtomicId(atomic, gAtomicModelId);
+    return atomic;
+#endif
 }
